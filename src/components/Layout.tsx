@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import ScrollToTop from "./ScrollToTop";
+import ChatBot from "./ChatBot";
 
 export default function Layout() {
   const location = useLocation();
@@ -24,6 +25,7 @@ export default function Layout() {
         </AnimatePresence>
       </main>
       <Footer />
+      <ChatBot />
     </div>
   );
 }
