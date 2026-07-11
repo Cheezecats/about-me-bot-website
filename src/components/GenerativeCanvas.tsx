@@ -132,7 +132,7 @@ export default function GenerativeCanvas({
       instance.remove();
       instanceRef.current = null;
       // p5 leaves a canvas node; clear it defensively
-      node.innerHTML = "";
+      node.textContent = "";
     };
   }, [theme, seed, particleCount, height]);
 

@@ -1,0 +1,203 @@
+{"question": "What rank is James in Apex Legends?", "positive_chunk_id": "apex_rank_apexrank_000"}
+{"question": "What's his highest Apex Legends rank?", "positive_chunk_id": "apex_rank_apexrank_000"}
+{"question": "How old is James?", "positive_chunk_id": "bio_age_001"}
+{"question": "Where does James live?", "positive_chunk_id": "bio_location_002"}
+{"question": "What does James do?", "positive_chunk_id": "bio_role_004"}
+{"question": "Tell me about James", "positive_chunk_id": "bio_bio_summary_000"}
+{"question": "When did James start ice hockey?", "positive_chunk_id": "sport_ice_hockey_001"}
+{"question": "Does James play ice hockey?", "positive_chunk_id": "sport_ice_hockey_001"}
+{"question": "When did James start tennis?", "positive_chunk_id": "sport_tennis_002"}
+{"question": "When did James start skiing?", "positive_chunk_id": "sport_skiing_000"}
+{"question": "When did James start floorball?", "positive_chunk_id": "sport_floorball_003"}
+{"question": "Which sports does James mention in his bio?", "positive_chunk_id": "bio_bio_002"}
+{"question": "What are James's favorite games?", "positive_chunk_id": "favorites_favorite_games_002"}
+{"question": "Does James play any instruments?", "positive_chunk_id": "hobbies_electric_guitar_000"}
+{"question": "What instrument does James play?", "positive_chunk_id": "hobbies_electric_guitar_000"}
+{"question": "Did James film anything in Greece?", "positive_chunk_id": "video_greece_000"}
+{"question": "How can I contact James?", "positive_chunk_id": "contact_contact_and_socials_000"}
+{"question": "What's James's email?", "positive_chunk_id": "contact_contact_and_socials_000"}
+{"question": "Where has James traveled for photography?", "positive_chunk_id": "hobbies_photography_and_videography_001"}
+{"question": "What school does James go to?", "positive_chunk_id": "education_current_curriculum_000"}
+{"question": "Where does James study?", "positive_chunk_id": "education_current_curriculum_000"}
+{"question": "What subjects does James take in IB?", "positive_chunk_id": "education_hl_subjects_001"}
+{"question": "What are James's HL subjects?", "positive_chunk_id": "education_hl_subjects_001"}
+{"question": "When does James graduate?", "positive_chunk_id": "education_expected_graduation_003"}
+{"question": "Does James do IB?", "positive_chunk_id": "education_current_curriculum_000"}
+{"question": "Is James a boarding student?", "positive_chunk_id": "education_boarding_student_006"}
+{"question": "Did James transfer schools?", "positive_chunk_id": "education_transfer_experience_005"}
+{"question": "What programming languages does James know?", "positive_chunk_id": "projects_skills_programming_languages_000"}
+{"question": "What CAD software does James know?", "positive_chunk_id": "projects_skills_engineering_tools_001"}
+{"question": "How did James learn to code?", "positive_chunk_id": "education_selftaught_programming_007"}
+{"question": "What position does James play in ice hockey?", "positive_chunk_id": "favorites_sports_positions_009"}
+{"question": "Where did James train for ice hockey?", "positive_chunk_id": "sports_ice_hockey_001"}
+{"question": "Did James train with the LA Kings?", "positive_chunk_id": "sports_ice_hockey_001"}
+{"question": "Has James played ice hockey internationally?", "positive_chunk_id": "sports_ice_hockey_001"}
+{"question": "Does James play soccer?", "positive_chunk_id": "sports_soccer_007"}
+{"question": "What position does James play in soccer?", "positive_chunk_id": "favorites_sports_positions_009"}
+{"question": "What are James's favorite competitive games?", "positive_chunk_id": "favorites_favorite_games_002"}
+{"question": "What are James's favorite non-competitive games?", "positive_chunk_id": "favorites_favorite_games_002"}
+{"question": "Does James play Valorant?", "positive_chunk_id": "gaming_competitive_games_top_3_002"}
+{"question": "Does James play CSGO?", "positive_chunk_id": "gaming_competitive_games_top_3_002"}
+{"question": "Is James interested in game development?", "positive_chunk_id": "gaming_interest_in_game_development_007"}
+{"question": "What anime does James like?", "positive_chunk_id": "favorites_favorite_anime_000"}
+{"question": "Does James like K-ON?", "positive_chunk_id": "favorites_favorite_anime_000"}
+{"question": "Does James like Jojo?", "positive_chunk_id": "favorites_favorite_anime_000"}
+{"question": "What is James's favorite anime?", "positive_chunk_id": "favorites_favorite_anime_000"}
+{"question": "Does James know about the Charge Rifle in Apex?", "positive_chunk_id": "gaming_apex_legends_expertise_005"}
+{"question": "Did Fortnite get James into tech?", "positive_chunk_id": "gaming_fortnite_as_gateway_to_tech_006"}
+{"question": "What is James's favorite movie?", "positive_chunk_id": "favorites_favorite_movie_001"}
+{"question": "What is James's favorite food?", "positive_chunk_id": "favorites_favorite_food_003"}
+{"question": "Does James like ramen?", "positive_chunk_id": "favorites_favorite_food_003"}
+{"question": "What is James's favorite music?", "positive_chunk_id": "favorites_favorite_music_004"}
+{"question": "What is James's favorite song?", "positive_chunk_id": "favorites_favorite_music_004"}
+{"question": "Who is James's favorite artist?", "positive_chunk_id": "favorites_favorite_music_004"}
+{"question": "Does James like Hatsune Miku?", "positive_chunk_id": "favorites_favorite_music_004"}
+{"question": "What is James's favorite place?", "positive_chunk_id": "favorites_favorite_place_005"}
+{"question": "Does James like Tokyo?", "positive_chunk_id": "favorites_favorite_place_005"}
+{"question": "What is James's favorite school subject?", "positive_chunk_id": "favorites_favorite_school_subject_006"}
+{"question": "What is James's favorite season?", "positive_chunk_id": "favorites_favorite_season_007"}
+{"question": "Does James like winter?", "positive_chunk_id": "favorites_favorite_season_007"}
+{"question": "What is James's favorite book?", "positive_chunk_id": "favorites_favorite_book_series_008"}
+{"question": "Does James like Percy Jackson?", "positive_chunk_id": "favorites_favorite_book_series_008"}
+{"question": "What IDE does James use?", "positive_chunk_id": "favorites_ideeditor_usage_010"}
+{"question": "Does James use Trae?", "positive_chunk_id": "favorites_ideeditor_usage_010"}
+{"question": "Has James been to Japan?", "positive_chunk_id": "travel_japan_21day_trip_001"}
+{"question": "Has James been to Xinjiang?", "positive_chunk_id": "travel_xinjiang_china_007"}
+{"question": "Has James been to Italy?", "positive_chunk_id": "travel_italy_tuscany_004"}
+{"question": "Has James been to Russia?", "positive_chunk_id": "travel_russia_006"}
+{"question": "Has James been to the United States?", "positive_chunk_id": "travel_united_states_los_angeles_005"}
+{"question": "Where did James go for ice hockey training?", "positive_chunk_id": "sports_ice_hockey_001"}
+{"question": "Did James win Physics Bowl?", "positive_chunk_id": "achievements_physics_bowl_national_silver_award_000"}
+{"question": "What is CTB?", "positive_chunk_id": "achievements_china_thinks_big_ctb_top_5_001"}
+{"question": "Has James published any research?", "positive_chunk_id": "achievements_curieux_academic_journal_publication_002"}
+{"question": "Has James been published in a journal?", "positive_chunk_id": "achievements_curieux_academic_journal_publication_002"}
+{"question": "Did James do Lumiere Research Program?", "positive_chunk_id": "achievements_lumiere_research_program_003"}
+{"question": "What is James's Math IA about?", "positive_chunk_id": "writing_math_ia_008"}
+{"question": "What is James's Physics IA about?", "positive_chunk_id": "writing_ib_physics_ia_007"}
+{"question": "What is James's EE about?", "positive_chunk_id": "writing_extended_essay_ee_005"}
+{"question": "What is James's Extended Essay about?", "positive_chunk_id": "writing_extended_essay_ee_005"}
+{"question": "What is James's TOK exhibition about?", "positive_chunk_id": "writing_tok_exhibition_004"}
+{"question": "How would James describe himself?", "positive_chunk_id": "bio_selfdescription_005"}
+{"question": "Does James value teamwork?", "positive_chunk_id": "personality_values_teamwork_008"}
+{"question": "What does James think about failure?", "positive_chunk_id": "personality_sees_failure_as_data_009"}
+{"question": "What does James want to do in the future?", "positive_chunk_id": "personality_future_aspirations_017"}
+{"question": "Does James believe in hard work?", "positive_chunk_id": "personality_values_hard_work_over_talent_005"}
+{"question": "What university programs has James applied to?", "positive_chunk_id": "personality_summer_programs_applied_018"}
+{"question": "Does James want to study semiconductors?", "positive_chunk_id": "personality_career_interest_shift_016"}
+{"question": "Does James do photography?", "positive_chunk_id": "hobbies_photography_and_videography_001"}
+{"question": "What camera does James use?", "positive_chunk_id": "hobbies_photography_and_videography_001"}
+{"question": "Does James build PCs?", "positive_chunk_id": "projects_skills_pc_build_project_019"}
+{"question": "What clubs has James founded?", "positive_chunk_id": "hobbies_founding_clubs_006"}
+{"question": "Does James do digital drawing?", "positive_chunk_id": "hobbies_digital_drawing_002"}
+{"question": "What music does James like?", "positive_chunk_id": "favorites_favorite_music_004"}
+{"question": "What food does James like?", "positive_chunk_id": "favorites_favorite_food_003"}
+{"question": "Does James like ice cream?", "positive_chunk_id": "favorites_favorite_food_003"}
+{"question": "What is James's hometown?", "positive_chunk_id": "bio_hometown_006"}
+{"question": "What camera gear does James use?", "positive_chunk_id": "hobbies_photography_and_videography_001"}
+{"question": "What lens does James use?", "positive_chunk_id": "hobbies_photography_and_videography_001"}
+{"question": "What is James's GitHub?", "positive_chunk_id": "contact_github_profile_002"}
+{"question": "What is James's YouTube channel?", "positive_chunk_id": "contact_youtube_channel_001"}
+{"question": "Does James have Bilibili?", "positive_chunk_id": "contact_bilibili_account_003"}
+{"question": "What is James's Bilibili UID?", "positive_chunk_id": "contact_bilibili_account_003"}
+{"question": "What is James's website?", "positive_chunk_id": "contact_personal_website_000"}
+{"question": "What is James's LLM paper about?", "positive_chunk_id": "writing_llm_hallucination_research_paper_000"}
+{"question": "What is James's histology paper about?", "positive_chunk_id": "writing_histology_classification_research_paper_001"}
+{"question": "Did James submit to NYT?", "positive_chunk_id": "achievements_nyt_growing_up_with_ai_contest_submissio_005"}
+{"question": "What is James's NYT submission about?", "positive_chunk_id": "writing_nyt_growing_up_with_ai_submission_003"}
+{"question": "What is the 丘竞赛?", "positive_chunk_id": "achievements_qiu_competition_participation_004"}
+{"question": "What was James's Tongji research about?", "positive_chunk_id": "projects_skills_tongji_university_research_project_summe_018"}
+{"question": "Has James taken any online courses?", "positive_chunk_id": "achievements_completed_coursera_course_006"}
+{"question": "What Coursera course did James complete?", "positive_chunk_id": "achievements_completed_coursera_course_006"}
+{"question": "How does James introduce himself on his website?", "positive_chunk_id": "bio_bio_001"}
+{"question": "How would you summarize who James is?", "positive_chunk_id": "bio_bio_summary_000"}
+{"question": "What is James's full name?", "positive_chunk_id": "bio_full_name_000"}
+{"question": "Where is James located?", "positive_chunk_id": "bio_location_002"}
+{"question": "How does James describe himself in his bio?", "positive_chunk_id": "bio_selfdescription_005"}
+{"question": "What is James's personal tagline?", "positive_chunk_id": "bio_tagline_003"}
+{"question": "Is there a public email address for James?", "positive_chunk_id": "contact_public_email_004"}
+{"question": "Is James's YouTube channel called cheezecats?", "positive_chunk_id": "contact_youtube_channel_001"}
+{"question": "Did James complete any Coursera courses?", "positive_chunk_id": "education_completed_coursera_course_009"}
+{"question": "Does James go to YK Pao School?", "positive_chunk_id": "education_current_curriculum_000"}
+{"question": "What curriculum does James study?", "positive_chunk_id": "education_current_curriculum_000"}
+{"question": "What are James's favorite engineering topics?", "positive_chunk_id": "education_favorite_engineering_topics_012"}
+{"question": "What grade is James currently in?", "positive_chunk_id": "education_grade_level_004"}
+{"question": "Is James interested in astrophysics?", "positive_chunk_id": "education_interest_in_astrophysics_013"}
+{"question": "What space topics interest James?", "positive_chunk_id": "education_interest_in_astrophysics_013"}
+{"question": "Who sparked James's interest in computer science?", "positive_chunk_id": "education_person_who_sparked_cs_interest_010"}
+{"question": "Why is physics James's favorite subject?", "positive_chunk_id": "education_physics_teacher_011"}
+{"question": "When did James teach himself Python?", "positive_chunk_id": "education_selftaught_programming_007"}
+{"question": "What does James's medical imaging essay evaluate?", "positive_chunk_id": "essay_benchmarking_neural_classifiers_for_medi_001"}
+{"question": "How has anime influenced James?", "positive_chunk_id": "gaming_anime_influence_011"}
+{"question": "Which anime series does James list as his top favorites?", "positive_chunk_id": "gaming_anime_top_favorites_010"}
+{"question": "Why does James play video games?", "positive_chunk_id": "gaming_gaming_as_relaxation_000"}
+{"question": "What other games does James play besides his favorites?", "positive_chunk_id": "gaming_other_games_played_004"}
+{"question": "Who would James want to interview?", "positive_chunk_id": "gaming_professional_gamer_as_role_model_009"}
+{"question": "Does James want a 3D printer?", "positive_chunk_id": "hobbies_3d_printer_interest_009"}
+{"question": "Does James use AI tools for learning?", "positive_chunk_id": "hobbies_aillm_usage_005"}
+{"question": "When did James start playing electric guitar?", "positive_chunk_id": "hobbies_electric_guitar_000"}
+{"question": "How did James learn to play guitar?", "positive_chunk_id": "hobbies_electric_guitar_000"}
+{"question": "What are James's food preferences?", "positive_chunk_id": "hobbies_food_preferences_004"}
+{"question": "How would James decorate his room?", "positive_chunk_id": "hobbies_room_decoration_preferences_008"}
+{"question": "What is the Tactile Book Project James participated in?", "positive_chunk_id": "hobbies_tactile_book_project_007"}
+{"question": "What music genres does James play on guitar?", "positive_chunk_id": "hobby_electric_guitar_001"}
+{"question": "How does James contribute to his school community?", "positive_chunk_id": "personality_being_respectful_and_friendly_031"}
+{"question": "Is James only interested in STEM?", "positive_chunk_id": "personality_broad_interests_021"}
+{"question": "Is James concerned about the digital divide?", "positive_chunk_id": "personality_concerned_about_digital_divide_012"}
+{"question": "Has James ever done cosplay?", "positive_chunk_id": "personality_fun_fact_cosplay_019"}
+{"question": "Has gaming helped James develop leadership skills?", "positive_chunk_id": "personality_gaming_leadership_029"}
+{"question": "What hands-on skills does James have?", "positive_chunk_id": "personality_handson_skills_022"}
+{"question": "What is James looking forward to at age 18?", "positive_chunk_id": "personality_life_at_18_026"}
+{"question": "Is James optimistic about AI?", "positive_chunk_id": "personality_on_ai_optimism_014"}
+{"question": "How does James define engineering?", "positive_chunk_id": "personality_on_engineering_as_problemsolving_015"}
+{"question": "Does James like to dig deep into his interests?", "positive_chunk_id": "personality_passion_for_digging_deep_020"}
+{"question": "What school tradition is James excited to carry forward?", "positive_chunk_id": "personality_school_tradition_xueyuan_house_competiti_027"}
+{"question": "What does James think failure is?", "positive_chunk_id": "personality_sees_failure_as_data_009"}
+{"question": "What does James consider his greatest victory?", "positive_chunk_id": "personality_selfdescription_greatest_victory_003"}
+{"question": "How would James describe his personality?", "positive_chunk_id": "personality_selfdescription_nice_and_outgoing_000"}
+{"question": "Does James consider himself a self-learner?", "positive_chunk_id": "personality_selfdescription_selflearner_002"}
+{"question": "What would James do with unlimited money?", "positive_chunk_id": "personality_values_friendship_above_material_things_010"}
+{"question": "Does James value politeness and manners?", "positive_chunk_id": "personality_values_politeness_and_manners_004"}
+{"question": "Does James swear a lot?", "positive_chunk_id": "personality_values_politeness_and_manners_004"}
+{"question": "What does James think is the best part of engineering?", "positive_chunk_id": "personality_views_engineering_as_duality_011"}
+{"question": "What did James photograph in Tuscany?", "positive_chunk_id": "photo_photography_000"}
+{"question": "What did James photograph in Hokkaido at night?", "positive_chunk_id": "photo_photography_001"}
+{"question": "What did James photograph in Athens?", "positive_chunk_id": "photo_photography_002"}
+{"question": "When did James start 3D modeling?", "positive_chunk_id": "projects_skills_3d_modeling_journey_014"}
+{"question": "What is James's most important project?", "positive_chunk_id": "projects_skills_ai_visual_recognition_project_summer_015"}
+{"question": "What is the Zhiyu App?", "positive_chunk_id": "projects_skills_app_zhiyu_app_flutter_medical_platform_007"}
+{"question": "Has James built a medical platform?", "positive_chunk_id": "projects_skills_app_zhiyu_app_flutter_medical_platform_007"}
+{"question": "What is the Econ Grapher?", "positive_chunk_id": "projects_skills_econ_grapher_008"}
+{"question": "What engineering tools does James use?", "positive_chunk_id": "projects_skills_engineering_tools_001"}
+{"question": "Has James made a Flappy Bird game?", "positive_chunk_id": "projects_skills_flappy_bird_game_012"}
+{"question": "What is the Foundation Model Histology Benchmark?", "positive_chunk_id": "projects_skills_foundation_model_histology_benchmark_011"}
+{"question": "Is James part of a robotics team?", "positive_chunk_id": "projects_skills_ftc_robotics_017"}
+{"question": "How active is James on GitHub?", "positive_chunk_id": "projects_skills_github_activity_020"}
+{"question": "What is James's hallucination evaluation project?", "positive_chunk_id": "projects_skills_hallucination_evaluation_010"}
+{"question": "What ML and AI research has James done?", "positive_chunk_id": "projects_skills_ml_ai_research_003"}
+{"question": "Has James built a PC from scratch?", "positive_chunk_id": "projects_skills_pc_build_project_019"}
+{"question": "What is the SAT Vocabulary Review App?", "positive_chunk_id": "projects_skills_sat_vocabulary_review_app_009"}
+{"question": "What is James's sensor project about?", "positive_chunk_id": "projects_skills_sensor_project_013"}
+{"question": "What was the topic of James's Tongji University project?", "positive_chunk_id": "projects_skills_tongji_university_research_project_summe_018"}
+{"question": "What is the Tune-app guitar tuner?", "positive_chunk_id": "projects_skills_tuneapp_fft_guitar_tuner_006"}
+{"question": "What is the Uniswap V3 EE experiment?", "positive_chunk_id": "projects_skills_uniswap_v3_ee_experiment_016"}
+{"question": "What web development has James done?", "positive_chunk_id": "projects_skills_web_development_002"}
+{"question": "Why did James start playing floorball?", "positive_chunk_id": "sport_floorball_004"}
+{"question": "Is skiing a family tradition for James?", "positive_chunk_id": "sports_skiing_000"}
+{"question": "What life lessons has James learned from sports?", "positive_chunk_id": "sports_life_lessons_004"}
+{"question": "Has James been to Greece?", "positive_chunk_id": "travel_greece_athens_ionian_sea_003"}
+{"question": "Which part of Italy did James visit?", "positive_chunk_id": "travel_italy_tuscany_004"}
+{"question": "How long was James's Japan trip?", "positive_chunk_id": "travel_japan_21day_trip_001"}
+{"question": "Has James been to Hokkaido?", "positive_chunk_id": "travel_japan_hokkaido_000"}
+{"question": "Why did James travel to Russia?", "positive_chunk_id": "travel_russia_006"}
+{"question": "Has James been to Los Angeles?", "positive_chunk_id": "travel_united_states_los_angeles_005"}
+{"question": "What is James's Greece video about?", "positive_chunk_id": "video_greece_000"}
+{"question": "What is the Japan Vlog about?", "positive_chunk_id": "video_japan_vlog_002"}
+{"question": "What is the Japan Winter video about?", "positive_chunk_id": "video_japan_winter_001"}
+{"question": "What three research questions does James's combined paper address?", "positive_chunk_id": "writing_combined_research_paper_002"}
+{"question": "Which classifier architecture performed best in James's histology benchmark?", "positive_chunk_id": "writing_histology_classification_research_paper_001"}
+{"question": "What did James investigate in his IB Physics internal assessment?", "positive_chunk_id": "writing_ib_physics_ia_007"}
+{"question": "What hallucination rates did James find across Gemma models?", "positive_chunk_id": "writing_llm_hallucination_research_paper_000"}
+{"question": "What did James submit during the Lumiere Research Program?", "positive_chunk_id": "writing_lumiere_research_program_006"}
+{"question": "How does James's Math IA use a Markov chain?", "positive_chunk_id": "writing_math_ia_008"}
+{"question": "What did James say about switching between AI models in his NYT piece?", "positive_chunk_id": "writing_nyt_growing_up_with_ai_submission_003"}
+{"question": "What three objects did James use in his TOK exhibition?", "positive_chunk_id": "writing_tok_exhibition_004"}

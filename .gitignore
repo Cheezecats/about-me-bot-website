@@ -5,3 +5,21 @@ dist
 .DS_Store
 *.local
 .vite
+
+# AI chatbot artifacts (machine-local, not synced)
+data/content_export.json
+data/bm25_index.json
+data/train.jsonl
+data/val.jsonl
+data/test.jsonl
+data/eval_results.json
+kb_private/
+models/
+*.gguf
+*.bin
+*.pt
+*.safetensors
+.env
+.env.*
+cloudflared*
+.ollama/
