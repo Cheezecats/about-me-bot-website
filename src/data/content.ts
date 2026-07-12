@@ -6,6 +6,7 @@ export type Photo = {
   thumb: string;
   full: string;
   caption?: string;
+  featured?: boolean;
 };
 
 export type VideoItem = {
@@ -76,14 +77,19 @@ const photo = (thumbName: string, fullName: string, caption?: string): Photo => 
   caption,
 });
 
+const featuredPhoto = (thumbName: string, fullName: string, caption?: string): Photo => ({
+  ...photo(thumbName, fullName, caption),
+  featured: true,
+});
+
 export const photos: Photo[] = [
-  photo("3T6A3836.jpg", "3T6A3836.jpg", "Italy, Toscany at sunset — capturing the black and orange tones."),
+  featuredPhoto("3T6A3836.jpg", "3T6A3836.jpg", "Italy, Toscany at sunset — capturing the black and orange tones."),
   photo("_T6A2660.jpg", "_T6A2660.JPG"),
   photo("_T6A2724.jpg", "_T6A2724.jpg"),
   photo("_T6A3351.jpg", "_T6A3351.jpg"),
   photo("_T6A3526.jpg", "_T6A3526.jpg"),
   photo("DSC_0348.jpg", "DSC_0348.jpg"),
-  photo("_T6A3542.jpg", "_T6A3542.jpg"),
+  featuredPhoto("_T6A3542.jpg", "_T6A3542.jpg", "Switzerland, Mount Rigi — the Swiss Alps unfolding beneath a wide winter sky."),
   photo("_T6A3720.jpg", "_T6A3720.jpg"),
   photo("_T6A6000.jpg", "_T6A6000.jpg"),
   photo("_T6A5346.jpg", "_T6A5346.jpg"),
@@ -98,12 +104,12 @@ export const photos: Photo[] = [
   photo("2-4jpn (2 - 37).jpg", "2-4jpn (2 - 37).jpg"),
   photo("2-4jpn (3 - 37).jpg", "2-4jpn (3 - 37).jpg"),
   photo("IMG_8240.jpg", "IMG_8240.jpg"),
-  photo("2-4jpn (17 - 37).jpg", "2-4jpn (17 - 37).jpg", "Japan, Hokkaido — night shot of a solitary evergreen tree illuminated from below, surrounded by snow."),
+  featuredPhoto("2-4jpn (17 - 37).jpg", "2-4jpn (17 - 37).jpg", "Japan, Hokkaido — night shot of a solitary evergreen tree illuminated from below, surrounded by snow."),
   photo("2-4jpn (25 - 37).jpg", "2-4jpn (25 - 37).jpg"),
   photo("2-4jpn (26 - 37).jpg", "2-4jpn (26 - 37).jpg"),
   photo("2-4jpn (29 - 37).jpg", "2-4jpn (29 - 37).jpg"),
   photo("2-4jpn (35 - 37).jpg", "2-4jpn (35 - 37).jpg"),
-  photo("2-4jpn (7 - 37).jpg", "2-4jpn (7 - 37).jpg"),
+  featuredPhoto("2-4jpn (7 - 37).jpg", "2-4jpn (7 - 37).jpg", "Japan, Tokyo — Tokyo Tower held at a distance, suspended above the city."),
   photo("2-4jpn (8 - 37).jpg", "2-4jpn (8 - 37).jpg"),
   photo("_T6A5313.jpg", "_T6A5313.jpg"),
   photo("_T6A6070.jpg", "_T6A6070.jpg"),
@@ -111,6 +117,21 @@ export const photos: Photo[] = [
   photo("DSC_0480.jpg", "DSC_0480.jpg", "Greece, Athens — view of the National Observatory of Athens nestled among lush greenery under a soft, fading twilight sky."),
   photo("IMG_7739.jpg", "IMG_7739.jpg"),
   photo("2-4jpn (16 - 37).jpg", "2-4jpn (16 - 37).jpg", "Japan, Hokkaido — a 7-Eleven storefront glows against the dark, snow-covered landscape of a winter night."),
+  photo("sea-ship.jpg", "sea-ship.jpg", "A ship crossing a quiet harbor."),
+  photo("hakuba-01.jpg", "hakuba-01.jpg", "Hakuba — snow-covered mountains under a clear winter sky."),
+  photo("stars-night.jpg", "stars-night.jpg", "Stars above a winter tree line."),
+  photo("tokyo-tower-night.jpg", "tokyo-tower-night.jpg", "Tokyo Tower at night."),
+  photo("hakuba-02.jpg", "hakuba-02.jpg", "Hakuba — a snowy railway leading toward the mountains."),
+  photo("hakuba-03.jpg", "hakuba-03.jpg", "Hakuba — snow-covered ski slopes and ridgelines."),
+  photo("ueno-02.jpg", "ueno-02.jpg", "Ueno — a rainy city scene framed by railway infrastructure."),
+  photo("xinjiang-dunes-abstract.jpg", "xinjiang-dunes-abstract.jpg", "Xinjiang — an abstract landscape of dunes, fractured by sky and shadow."),
+  photo("hakuba-04.jpg", "hakuba-04.jpg", "Hakuba — railway tracks descending through the snow."),
+  photo("ueno-01.jpg", "ueno-01.jpg", "Ueno — a rainy urban street."),
+  featuredPhoto("xinjiang-dunes.jpg", "xinjiang-dunes.jpg", "Xinjiang — wind-drawn dunes folding into one another, a quiet study of sand and light."),
+  photo("shiga-night.jpg", "shiga-night.jpg", "Shiga — a snowy forest illuminated at night."),
+  photo("karuizawa-forest.jpg", "karuizawa-forest.jpg", "Karuizawa — a quiet forest road."),
+  photo("xinjiang-canyon.jpg", "xinjiang-canyon.jpg", "Xinjiang — eroded earth and shadow tracing a quiet desert canyon."),
+  photo("karuizawa-frozen-stream.jpg", "karuizawa-frozen-stream.jpg", "Karuizawa — a frozen stream through the forest."),
 ];
 
 export const videos: VideoItem[] = [
