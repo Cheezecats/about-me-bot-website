@@ -1,5 +1,7 @@
 # Education
 
+James studies the IBDP at YK Pao School, an international high school in Shanghai. He is currently in Grade 11 and takes Higher Level Computer Science, Mathematics AA, and Physics.
+
 ## Current curriculum
 Studies the IBDP (International Baccalaureate Diploma Programme) at YK Pao School, an international high school in Shanghai.
 

@@ -1,5 +1,7 @@
 # Travel
 
+James has travelled to Japan, Greece, Italy, and Xinjiang, and has travelled or trained abroad in the United States and Russia through ice hockey.
+
 ## Japan (Hokkaido)
 Traveled to Japan, specifically Hokkaido. Filmed a 4K video in 2025 ("Japan Winter") exploring "the quiet beauty of a Japanese winter, from the snow-heavy forests of Hokkaido to the frozen shrines of the north." Photographed night scenes including a solitary evergreen tree and a 7-Eleven storefront in snow.
 

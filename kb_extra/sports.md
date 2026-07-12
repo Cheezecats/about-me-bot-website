@@ -1,5 +1,7 @@
 # Sports
 
+James plays skiing, ice hockey, tennis, floorball, and soccer. He started skiing in 2013, ice hockey in 2015, tennis in 2018, and floorball in 2023; he plays soccer as a forward.
+
 ## Skiing
 Started skiing in 2013. Described as "a winter passion that I look forward to every year and also an important family tradition." Includes carving turns on groomed trails, exploring powder-filled backcountry, and park riding. Skiing is a family sport — exciting and a bit risky, which is part of the appeal.
 

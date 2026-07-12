@@ -11,7 +11,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from backend import config
-from backend.generation.answer import CONTEXT_TOP_N, answer_or_refuse
+from backend.generation.answer import (
+    answer_or_refuse,
+    merge_compound_results,
+    split_compound_question,
+)
 from backend.generation.conversation import ConversationState
 from backend.reranker.inference import Reranker, RerankerUnavailable
 from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build, retrieve
@@ -81,6 +85,8 @@ class ChatResponse(BaseModel):
     confidence: float
     sources: list[ChatSource]
     fallback_used: bool
+    retrieval_score: float = 0.0
+    retrieval_method: str = "none"
 
 
 @app.get("/api/health")
@@ -90,6 +96,7 @@ async def health():
         "reranker_enabled": getattr(app.state, "reranker_enabled", False),
         "reranker_loaded": getattr(app.state, "reranker_loaded", False),
         "bm25_loaded": getattr(app.state, "bm25_index", None) is not None,
+        "retrieval_method": "reranker" if getattr(app.state, "reranker_loaded", False) else "bm25",
     }
 
 
@@ -107,26 +114,29 @@ async def chat(request: ChatRequest):
             state = ConversationState()
             conversations[request.session_id] = state
 
-    query = state.augment_query(question) if state is not None else question
-    candidates = retrieve(query, index, chunks, k=config.TOP_K)
-
     reranker: Reranker | None = app.state.reranker
     fallback_used = False
-    if reranker is not None:
-        reranked = reranker.rerank(question, candidates)
-    else:
-        reranked = candidates
-        fallback_used = True
-
     history = state.build_history_messages() if state is not None else None
+    questions = split_compound_question(question)
+    clause_results: list[dict] = []
 
     try:
-        result = answer_or_refuse(
-            question,
-            reranked,
-            history=history,
-            enforce_confidence_threshold=reranker is not None,
-        )
+        for clause in questions:
+            query = state.augment_query(clause) if state is not None else clause
+            candidates = retrieve(query, index, chunks, k=config.TOP_K)
+            if reranker is not None:
+                reranked = reranker.rerank(clause, candidates)
+            else:
+                reranked = candidates
+                fallback_used = True
+            clause_results.append(
+                answer_or_refuse(
+                    clause,
+                    reranked,
+                    history=history,
+                    enforce_confidence_threshold=reranker is not None,
+                )
+            )
     except (SystemExit, Exception):
         unavailable = ChatResponse(
             status="unavailable",
@@ -134,8 +144,11 @@ async def chat(request: ChatRequest):
             confidence=0.0,
             sources=[],
             fallback_used=fallback_used,
+            retrieval_method="reranker" if reranker is not None else "bm25",
         )
         return JSONResponse(status_code=503, content=unavailable.model_dump())
+
+    result = clause_results[0] if len(clause_results) == 1 else merge_compound_results(questions, clause_results)
 
     confidence = 0.0 if fallback_used else float(result["confidence"])
     status = result.get("status", "answered")
@@ -150,6 +163,8 @@ async def chat(request: ChatRequest):
         )
         for s in result.get("sources", [])
     ]
+    retrieval_score = float(result.get("confidence", 0.0)) if sources else 0.0
+    retrieval_method = "reranker" if reranker is not None else ("bm25" if sources else "none")
 
     if state is not None:
         topic = sources[0].category if sources else "unknown"
@@ -161,6 +176,8 @@ async def chat(request: ChatRequest):
         confidence=confidence,
         sources=sources,
         fallback_used=fallback_used or result.get("fallback_used", False),
+        retrieval_score=retrieval_score,
+        retrieval_method=retrieval_method,
     )
 
 

@@ -4,7 +4,7 @@ import os
 import pytest
 
 from backend.retrieval import bm25
-from backend.retrieval.tokenizer import tokenize
+from backend.retrieval.tokenizer import tokenize, tokenize_query
 
 
 MINI_CORPUS = [
@@ -18,6 +18,19 @@ def test_tokenizer_strips_stopwords_and_case():
     assert tokenize("What is he in Apex Legends?") == ["apex", "legends"]
     assert tokenize("") == []
     assert tokenize("   ") == []
+
+
+def test_query_tokenizer_handles_common_variations():
+    assert "games" in tokenize_query("favorite game")
+    assert "favorite" in tokenize_query("favoriate game")
+    assert "interests" in tokenize_query("what are your hobbies")
+    assert "photography" in tokenize_query("photographt")
+    assert "papers" in tokenize_query("what essays has James written")
+    assert "traveled" in tokenize_query("Where has James travelled")
+    assert "guitar" in tokenize_query("Does James play an instrument")
+    assert "favorite" in tokenize_query("What games does James enjoy")
+    assert "education" in tokenize_query("What school does James attend")
+    assert "achievements" in tokenize_query("What awards has James won")
 
 
 def test_bm25_build_sets_stats():
@@ -90,3 +103,40 @@ def test_real_kb_apex_query_top3():
     results = bm25.retrieve("apex rank", idx, chunks, k=3)
     assert any("diamond" in r["text"].lower() for r in results)
     assert results[0]["metadata"]["category"] == "apex_rank"
+
+
+def test_real_kb_favorite_game_query_finds_favorite_games():
+    if not bm25.config.CHUNKS_PATH.exists():
+        pytest.skip("data/chunks.json not built")
+    idx = bm25.BM25Index.build(bm25.load_chunks())
+    chunks = bm25.load_chunks()
+    results = bm25.retrieve("favoriate game", idx, chunks, k=3)
+    assert results[0]["chunk_id"] == "favorites_favorite_games_002"
+
+
+def test_real_kb_broad_topic_queries_find_summary_chunks():
+    if not bm25.config.CHUNKS_PATH.exists():
+        pytest.skip("data/chunks.json not built")
+    idx = bm25.BM25Index.build(bm25.load_chunks())
+    chunks = bm25.load_chunks()
+    assert bm25.retrieve("sports", idx, chunks, k=1)[0]["chunk_id"] == "sports_sports_000"
+    assert bm25.retrieve("what essays has James written", idx, chunks, k=1)[0]["chunk_id"] == "writing_writing_essays_000"
+
+
+def test_real_kb_synonyms_find_their_topic_chunks():
+    if not bm25.config.CHUNKS_PATH.exists():
+        pytest.skip("data/chunks.json not built")
+    idx = bm25.BM25Index.build(bm25.load_chunks())
+    chunks = bm25.load_chunks()
+    assert bm25.retrieve("Where has James travelled", idx, chunks, k=1)[0]["chunk_id"] == "travel_travel_000"
+    assert bm25.retrieve("Does James play an instrument", idx, chunks, k=1)[0]["chunk_id"] == "hobbies_electric_guitar_000"
+    assert bm25.retrieve("What projects has James built", idx, chunks, k=1)[0]["chunk_id"] == "projects_skills_projects_skills_000"
+
+
+def test_real_kb_awards_query_finds_achievements_summary():
+    if not bm25.config.CHUNKS_PATH.exists():
+        pytest.skip("data/chunks.json not built")
+    idx = bm25.BM25Index.build(bm25.load_chunks())
+    chunks = bm25.load_chunks()
+    assert bm25.retrieve("What awards has James won", idx, chunks, k=1)[0]["chunk_id"] == "achievements_achievements_awards_000"
+    assert bm25.retrieve("awards", idx, chunks, k=1)[0]["chunk_id"] == "achievements_achievements_awards_000"
