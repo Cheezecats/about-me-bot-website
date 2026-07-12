@@ -16,7 +16,7 @@ Shanghai, China
 Student · Photographer · Athlete · Technologist
 
 ## Self-description
-"I'm a 17-year-old student living in Shanghai. I'm passionate about technology, and I enjoy spending my time exploring a mix of digital and real-world interests."
+James describes himself as "a 17-year-old student living in Shanghai" who is passionate about technology and enjoys exploring a mix of digital and real-world interests.
 
 ## Hometown
 Born and raised in Shanghai. Has lived there all his life (excluding vacations).

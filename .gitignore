@@ -13,6 +13,9 @@ data/train.jsonl
 data/val.jsonl
 data/test.jsonl
 data/eval_results.json
+data/training_history.json
+data/threshold_calibration.json
+data/ablation_results.json
 kb_private/
 models/
 *.gguf

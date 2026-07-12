@@ -28,7 +28,7 @@ Self-learned Python during middle school.
 Self-learned SolidWorks (CAD software) during middle school. Started 3D modeling in 6th grade.
 
 ## Completed Coursera course
-"Motion, Forces, Energy and Gravity: From Particles to Planets" by UNSW Sydney via Coursera.
+Completed the online Coursera course "Motion, Forces, Energy and Gravity: From Particles to Planets" by UNSW Sydney.
 
 ## Person who sparked CS interest
 A classmate helped James discover his interest in computer science. They collaborated on the econ-grapher project.

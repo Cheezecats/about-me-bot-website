@@ -102,12 +102,12 @@
 {"question": "What is James's website?", "positive_chunk_id": "contact_personal_website_000"}
 {"question": "What is James's LLM paper about?", "positive_chunk_id": "writing_llm_hallucination_research_paper_000"}
 {"question": "What is James's histology paper about?", "positive_chunk_id": "writing_histology_classification_research_paper_001"}
-{"question": "Did James submit to NYT?", "positive_chunk_id": "achievements_nyt_growing_up_with_ai_contest_submissio_005"}
+{"question": "Did James submit to NYT?", "positive_chunk_id": "writing_nyt_growing_up_with_ai_submission_003"}
 {"question": "What is James's NYT submission about?", "positive_chunk_id": "writing_nyt_growing_up_with_ai_submission_003"}
 {"question": "What is the 丘竞赛?", "positive_chunk_id": "achievements_qiu_competition_participation_004"}
 {"question": "What was James's Tongji research about?", "positive_chunk_id": "projects_skills_tongji_university_research_project_summe_018"}
-{"question": "Has James taken any online courses?", "positive_chunk_id": "achievements_completed_coursera_course_006"}
-{"question": "What Coursera course did James complete?", "positive_chunk_id": "achievements_completed_coursera_course_006"}
+{"question": "Has James taken any online courses?", "positive_chunk_id": "education_completed_coursera_course_009"}
+{"question": "What Coursera course did James complete?", "positive_chunk_id": "education_completed_coursera_course_009"}
 {"question": "How does James introduce himself on his website?", "positive_chunk_id": "bio_bio_001"}
 {"question": "How would you summarize who James is?", "positive_chunk_id": "bio_bio_summary_000"}
 {"question": "What is James's full name?", "positive_chunk_id": "bio_full_name_000"}

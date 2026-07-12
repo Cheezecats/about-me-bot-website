@@ -1,3 +1,6 @@
+import json
+import os
+
 import pytest
 
 from backend.retrieval import bm25
@@ -60,6 +63,23 @@ def test_bm25_save_load_roundtrip(tmp_path):
     assert loaded.n_docs == idx.n_docs
     assert loaded.inverted_index == idx.inverted_index
     assert loaded.search("apex", k=1)[0][0] == "a"
+
+
+def test_load_or_build_rebuilds_when_chunks_are_newer(tmp_path, monkeypatch):
+    chunks_path = tmp_path / "chunks.json"
+    index_path = tmp_path / "bm25_index.json"
+    chunks_path.write_text(json.dumps(MINI_CORPUS), encoding="utf-8")
+    bm25.BM25Index.build([MINI_CORPUS[0]]).save(index_path)
+
+    monkeypatch.setattr(bm25.config, "CHUNKS_PATH", chunks_path)
+    monkeypatch.setattr(bm25.config, "BM25_INDEX_PATH", index_path)
+    stale_time = index_path.stat().st_mtime_ns
+    os.utime(chunks_path, ns=(stale_time + 1_000_000_000, stale_time + 1_000_000_000))
+
+    refreshed = bm25.load_or_build()
+
+    assert refreshed.n_docs == len(MINI_CORPUS)
+    assert refreshed.search("photography", k=1)[0][0] == "c"
 
 
 def test_real_kb_apex_query_top3():

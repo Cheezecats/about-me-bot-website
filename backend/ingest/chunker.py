@@ -130,7 +130,13 @@ def _from_bio(bio: dict) -> list[dict]:
     chunks += _make_chunks_from_section(summary, "site", "bio", "Bio summary", 0)
     ordinal = 1
     for p in bio.get("paragraphs", []):
-        chunks += _make_chunks_from_section(p, "site", "bio", "Bio", ordinal)
+        chunks += _make_chunks_from_section(
+            f"James introduces himself on his website: {p}",
+            "site",
+            "bio",
+            "Bio",
+            ordinal,
+        )
         ordinal += 1
     return chunks
 

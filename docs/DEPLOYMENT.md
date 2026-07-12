@@ -1,7 +1,7 @@
 # Deployment Guide — Ask James
 
 This guide covers deploying the full **Ask James** RAG chatbot stack: the FastAPI
-backend, the React frontend, the trained DistilBERT reranker, and the Cloudflare
+backend, the React frontend, an optional validated cross-encoder reranker, and the Cloudflare
 Tunnel that exposes the local Mac mini to the public internet.
 
 ---
@@ -49,7 +49,7 @@ User Question
 |-----------|----------|---------|
 | BM25 index | [backend/retrieval/bm25.py](../backend/retrieval/bm25.py) | Lexical retrieval with inverted index |
 | Tokenizer | [backend/retrieval/tokenizer.py](../backend/retrieval/tokenizer.py) | Normalisation, alias mapping, stopword removal |
-| Reranker | [backend/reranker/inference.py](../backend/reranker/inference.py) | DistilBERT cross-encoder inference |
+| Reranker | [backend/reranker/inference.py](../backend/reranker/inference.py) | Configurable zero-shot or fine-tuned cross-encoder inference |
 | Generation | [backend/generation/answer.py](../backend/generation/answer.py) | Ollama/Groq call, grounding, PII filter |
 | API | [backend/api.py](../backend/api.py) | FastAPI app, `/api/chat` and `/api/health` |
 | Config | [backend/config.py](../backend/config.py) | Environment variables and constants |
@@ -65,7 +65,7 @@ inference run on-device; the LLM runs locally via Ollama.
 
 - macOS with Python 3.12+ (check with `python3 --version`)
 - Node.js 20+ and npm (for frontend build)
-- The trained reranker model in `models/reranker/` (see [Section 5](#5-trained-model-deployment))
+- `sentence-transformers` when enabling the default zero-shot cross-encoder
 
 ### 2.2 Install Ollama and pull the model
 
@@ -96,8 +96,8 @@ runtime dependencies plus the ML extras (needed for the reranker):
 # From the project root
 pip install fastapi uvicorn python-dotenv httpx ollama
 
-# ML dependencies required to load the DistilBERT reranker
-pip install torch transformers
+# ML dependencies required to load either reranker backend
+pip install torch transformers sentence-transformers
 
 # Development / testing
 pip install pytest
@@ -127,6 +127,10 @@ CORS_ORIGINS=https://cheezecats.github.io,http://localhost:5173,https://ask-jame
 
 # Optional: restrict which Host headers the API accepts (default: "*")
 # ALLOWED_HOSTS=ask-james.example.com,localhost
+
+# Leave disabled unless threshold calibration reports recommended_for_deployment: true.
+RERANKER_ENABLED=false
+RERANKER_BACKEND=zeroshot_cross_encoder
 ```
 
 | Variable | Default | Description |
@@ -137,6 +141,8 @@ CORS_ORIGINS=https://cheezecats.github.io,http://localhost:5173,https://ask-jame
 | `ALLOWED_HOSTS` | `*` | TrustedHostMiddleware allow-list |
 | `GROQ_API_KEY` | *(empty)* | Only needed if `LLM_BACKEND=groq` |
 | `GROQ_MODEL` | `llama-3.1-8b-instant` | Only needed if `LLM_BACKEND=groq` |
+| `RERANKER_ENABLED` | `false` | Enables only a validated reranker |
+| `RERANKER_BACKEND` | `zeroshot_cross_encoder` | `zeroshot_cross_encoder` or `finetuned_distilbert` |
 
 ### 2.5 Run the API
 
@@ -152,9 +158,9 @@ On startup the API will:
 
 1. Load (or build) the BM25 index from `data/bm25_index.json`.
 2. Load the knowledge-base chunks from `data/chunks.json`.
-3. Attempt to load the DistilBERT reranker from `models/reranker/`.
-   - If the model directory is missing, the API starts in **BM25-only fallback
-     mode** (the `fallback_used` field in chat responses will be `true`).
+3. Load the configured reranker only when `RERANKER_ENABLED=true`.
+   - Otherwise, the API starts in **BM25-only fallback mode** (the
+     `fallback_used` field in chat responses will be `true`).
 4. Initialise an in-memory conversation store.
 
 You should see output similar to:

@@ -14,15 +14,13 @@ from backend import config
 from backend.generation.answer import CONTEXT_TOP_N, answer_or_refuse
 from backend.generation.conversation import ConversationState
 from backend.reranker.inference import Reranker, RerankerUnavailable
-from backend.retrieval.bm25 import BM25Index, build_and_save, load_chunks, retrieve
+from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build, retrieve
 
 _ROOT = config.ROOT_DIR
 
 
 def _load_index() -> BM25Index:
-    if config.BM25_INDEX_PATH.exists():
-        return BM25Index.load(config.BM25_INDEX_PATH)
-    return build_and_save()
+    return load_or_build()
 
 
 @asynccontextmanager
@@ -31,12 +29,14 @@ async def lifespan(app: FastAPI):
     app.state.chunks = load_chunks()
     app.state.reranker = None
     app.state.reranker_loaded = False
-    try:
-        app.state.reranker = Reranker()
-        app.state.reranker_loaded = True
-    except (SystemExit, RerankerUnavailable):
-        app.state.reranker = None
-        app.state.reranker_loaded = False
+    app.state.reranker_enabled = config.RERANKER_ENABLED
+    if config.RERANKER_ENABLED:
+        try:
+            app.state.reranker = Reranker()
+            app.state.reranker_loaded = True
+        except (SystemExit, RerankerUnavailable):
+            app.state.reranker = None
+            app.state.reranker_loaded = False
     if config.LLM_BACKEND == "groq" and not config.GROQ_API_KEY:
         import warnings
         warnings.warn("LLM_BACKEND=groq but GROQ_API_KEY is not set; generation will fail at request time.")
@@ -87,6 +87,7 @@ class ChatResponse(BaseModel):
 async def health():
     return {
         "status": "ok",
+        "reranker_enabled": getattr(app.state, "reranker_enabled", False),
         "reranker_loaded": getattr(app.state, "reranker_loaded", False),
         "bm25_loaded": getattr(app.state, "bm25_index", None) is not None,
     }
@@ -120,7 +121,12 @@ async def chat(request: ChatRequest):
     history = state.build_history_messages() if state is not None else None
 
     try:
-        result = answer_or_refuse(question, reranked, history=history)
+        result = answer_or_refuse(
+            question,
+            reranked,
+            history=history,
+            enforce_confidence_threshold=reranker is not None,
+        )
     except (SystemExit, Exception):
         unavailable = ChatResponse(
             status="unavailable",

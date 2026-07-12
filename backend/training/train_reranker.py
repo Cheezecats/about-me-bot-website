@@ -5,6 +5,7 @@ import math
 import random
 
 import torch
+import torch.nn.functional as F
 from torch.optim import AdamW
 from transformers import (
     AutoModelForSequenceClassification,
@@ -43,48 +44,91 @@ def _encode_batch(tokenizer, questions: list[str], texts: list[str]) -> dict:
     )
 
 
+def _group_rows(rows: list[dict]) -> list[list[dict]]:
+    """Return one positive-plus-negatives group for every training question."""
+
+    by_question: dict[str, list[dict]] = {}
+    for row in rows:
+        by_question.setdefault(row["question"], []).append(row)
+
+    groups: list[list[dict]] = []
+    for question, group in sorted(by_question.items()):
+        positives = [row for row in group if row["label"] == 1]
+        if len(positives) != 1:
+            raise ValueError(
+                f"Expected exactly one positive row for question {question!r}; "
+                f"found {len(positives)}."
+            )
+        if len(group) < 2:
+            raise ValueError(f"Question {question!r} has no negative candidates.")
+        groups.append(group)
+    return groups
+
+
 def _run_epoch(
     model,
     tokenizer,
-    rows: list[dict],
+    groups: list[list[dict]],
     device: torch.device,
     batch_size: int,
     optimizer: AdamW | None = None,
     scheduler=None,
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
+    """Train/evaluate a listwise reranker and return loss, P@1, and MRR."""
+
     is_train = optimizer is not None
     model.train(is_train)
-    order = list(range(len(rows)))
+    order = list(range(len(groups)))
     if is_train:
-        random.Random(42).shuffle(order)
+        random.shuffle(order)
     total_loss = 0.0
-    total_correct = 0
-    total = 0
+    top1_correct = 0
+    reciprocal_rank_sum = 0.0
+    total_questions = 0
     for start in range(0, len(order), batch_size):
         batch_idx = order[start : start + batch_size]
-        questions = [rows[i]["question"] for i in batch_idx]
-        texts = [rows[i]["text"] for i in batch_idx]
-        labels = torch.tensor(
-            [rows[i]["label"] for i in batch_idx], dtype=torch.long, device=device
+        batch_groups = [groups[i] for i in batch_idx]
+        candidates_per_question = len(batch_groups[0])
+        if any(len(group) != candidates_per_question for group in batch_groups):
+            raise ValueError("All question groups in a batch must have the same size.")
+
+        questions = [row["question"] for group in batch_groups for row in group]
+        texts = [row["text"] for group in batch_groups for row in group]
+        targets = torch.tensor(
+            [next(i for i, row in enumerate(group) if row["label"] == 1) for group in batch_groups],
+            dtype=torch.long,
+            device=device,
         )
         enc = _encode_batch(tokenizer, questions, texts)
         enc = {k: v.to(device) for k, v in enc.items()}
         if is_train:
             optimizer.zero_grad()
         with torch.set_grad_enabled(is_train):
-            outputs = model(**enc, labels=labels)
-            loss = outputs.loss
+            outputs = model(**enc)
+            # The positive-class logit margin is monotonic with the softmax
+            # score used by inference, while cross entropy compares all five
+            # candidates for the same question directly.
+            pair_scores = (outputs.logits[:, 1] - outputs.logits[:, 0]).reshape(
+                len(batch_groups), candidates_per_question
+            )
+            loss = F.cross_entropy(pair_scores, targets)
             if is_train:
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
                 if scheduler is not None:
                     scheduler.step()
-        total_loss += loss.item() * len(batch_idx)
-        preds = outputs.logits.argmax(dim=-1)
-        total_correct += (preds == labels).sum().item()
-        total += len(batch_idx)
-    return total_loss / max(total, 1), total_correct / max(total, 1)
+        total_loss += loss.item() * len(batch_groups)
+        ranked = pair_scores.argsort(dim=1, descending=True)
+        ranks = (ranked == targets.unsqueeze(1)).nonzero(as_tuple=False)[:, 1] + 1
+        top1_correct += (ranks == 1).sum().item()
+        reciprocal_rank_sum += (1.0 / ranks.float()).sum().item()
+        total_questions += len(batch_groups)
+    return (
+        total_loss / max(total_questions, 1),
+        top1_correct / max(total_questions, 1),
+        reciprocal_rank_sum / max(total_questions, 1),
+    )
 
 
 def _copy_state(model) -> dict:
@@ -98,14 +142,17 @@ def train() -> None:
             "Run `python -m backend.training.build_dataset` first."
         )
 
-    random.seed(42)
-    torch.manual_seed(42)
+    random.seed(config.RANDOM_SEED)
+    torch.manual_seed(config.RANDOM_SEED)
 
     train_rows = _load_jsonl(config.TRAIN_PATH)
     val_rows = _load_jsonl(config.VAL_PATH)
+    train_groups = _group_rows(train_rows)
+    val_groups = _group_rows(val_rows)
     device = _device()
     print(
-        f"[train] device={device} train_rows={len(train_rows)} val_rows={len(val_rows)}"
+        f"[train] device={device} train_questions={len(train_groups)} "
+        f"val_questions={len(val_groups)} candidates_per_question={len(train_groups[0])}"
     )
 
     tokenizer = AutoTokenizer.from_pretrained(config.BASE_MODEL_NAME)
@@ -116,7 +163,7 @@ def train() -> None:
     optimizer = AdamW(
         model.parameters(), lr=config.TRAIN_LEARNING_RATE, weight_decay=0.01
     )
-    steps_per_epoch = math.ceil(len(train_rows) / config.TRAIN_BATCH_SIZE)
+    steps_per_epoch = math.ceil(len(train_groups) / config.TRAIN_BATCH_SIZE)
     total_steps = steps_per_epoch * config.TRAIN_EPOCHS
     warmup_steps = int(0.1 * total_steps)
     scheduler = get_linear_schedule_with_warmup(
@@ -125,47 +172,49 @@ def train() -> None:
         num_training_steps=total_steps,
     )
 
-    best_val_loss = float("inf")
+    best_val_mrr = float("-inf")
     best_state: dict | None = None
-    patience = 1
+    patience = config.TRAIN_EARLY_STOPPING_PATIENCE
     epochs_no_improve = 0
     history_epochs: list[dict] = []
 
     for epoch in range(1, config.TRAIN_EPOCHS + 1):
-        train_loss, train_acc = _run_epoch(
+        train_loss, train_p1, train_mrr = _run_epoch(
             model,
             tokenizer,
-            train_rows,
+            train_groups,
             device,
             config.TRAIN_BATCH_SIZE,
             optimizer,
             scheduler,
         )
-        val_loss, val_acc = _run_epoch(
-            model, tokenizer, val_rows, device, config.TRAIN_BATCH_SIZE
+        val_loss, val_p1, val_mrr = _run_epoch(
+            model, tokenizer, val_groups, device, config.TRAIN_BATCH_SIZE
         )
         print(
             f"[train] epoch {epoch}/{config.TRAIN_EPOCHS} "
-            f"train_loss={train_loss:.4f} train_acc={train_acc:.4f} "
-            f"val_loss={val_loss:.4f} val_acc={val_acc:.4f}"
+            f"train_loss={train_loss:.4f} train_p@1={train_p1:.4f} train_mrr={train_mrr:.4f} "
+            f"val_loss={val_loss:.4f} val_p@1={val_p1:.4f} val_mrr={val_mrr:.4f}"
         )
         history_epochs.append(
             {
                 "epoch": epoch,
                 "train_loss": train_loss,
-                "train_acc": train_acc,
+                "train_precision_at_1": train_p1,
+                "train_mrr": train_mrr,
                 "val_loss": val_loss,
-                "val_acc": val_acc,
+                "val_precision_at_1": val_p1,
+                "val_mrr": val_mrr,
             }
         )
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_mrr > best_val_mrr:
+            best_val_mrr = val_mrr
             best_state = _copy_state(model)
             epochs_no_improve = 0
         else:
             epochs_no_improve += 1
-            print(f"[train] val loss did not improve ({epochs_no_improve}/{patience})")
+            print(f"[train] val MRR did not improve ({epochs_no_improve}/{patience})")
             if epochs_no_improve >= patience:
                 print("[train] early stopping triggered")
                 break
@@ -178,8 +227,10 @@ def train() -> None:
     tokenizer.save_pretrained(config.RERANKER_MODEL_DIR)
 
     history = {
+        "objective": "listwise_cross_entropy",
+        "candidates_per_question": len(train_groups[0]),
         "epochs": history_epochs,
-        "best_val_loss": best_val_loss,
+        "best_val_mrr": best_val_mrr,
         "total_steps": total_steps,
         "warmup_steps": warmup_steps,
         "weight_decay": 0.01,
@@ -192,7 +243,7 @@ def train() -> None:
     )
     print(
         f"[train] saved model+tokenizer to {config.RERANKER_MODEL_DIR} "
-        f"(best val_loss={best_val_loss:.4f})"
+        f"(best val_mrr={best_val_mrr:.4f})"
     )
     print(f"[train] saved training history to {training_history_path}")
 

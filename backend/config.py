@@ -23,6 +23,12 @@ TEST_PATH = DATA_DIR / "test.jsonl"
 EVAL_RESULTS_PATH = DATA_DIR / "eval_results.json"
 
 RERANKER_MODEL_DIR = MODELS_DIR / "reranker"
+# Keep experimental rerankers out of the live request path until they have
+# beaten the BM25 baseline and passed threshold calibration. Set
+# RERANKER_ENABLED=true only for a validated model.
+RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "false").lower() in {"1", "true", "yes"}
+RERANKER_BACKEND = os.getenv("RERANKER_BACKEND", "zeroshot_cross_encoder")
+ZEROSHOT_CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 BASE_MODEL_NAME = "distilbert-base-uncased"
 
 TOP_K = 10
@@ -59,12 +65,22 @@ GROUNDING_SYSTEM_PROMPT = (
 )
 
 TRAIN_LEARNING_RATE = 2e-5
-TRAIN_EPOCHS = 3
+TRAIN_EPOCHS = 8
+# Number of question groups per batch. Each group contains one positive chunk
+# and four negatives, so this is not a flat pair-classification batch size.
 TRAIN_BATCH_SIZE = 16
+TRAIN_EARLY_STOPPING_PATIENCE = 2
 TRAIN_VAL_SPLIT = 0.15
 TRAIN_TEST_SPLIT = 0.15
 NEGATIVES_PER_POSITIVE = 4
 TARGET_PRECISION_AT_1 = 0.70
+RANDOM_SEED = 42
+
+# Threshold selection is performed on validation data only. A threshold is
+# deployable only when it meets both operational error-rate requirements.
+MAX_FALSE_REFUSAL_RATE = 0.20
+MAX_UNSAFE_ANSWER_RATE = 0.10
+UNANSWERABLE_CALIBRATION_SPLIT = 0.70
 
 PII_PATTERNS = [
     r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
