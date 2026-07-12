@@ -12,11 +12,5 @@ Research paper on Large Language Models (LLMs) was published in the Curieux Acad
 ## Lumiere Research Program
 Participated in the Lumiere Research Program conducting independent research on LLM hallucinations.
 
-## 丘竞赛 (Qiu Competition) participation
-Participated in the 丘竞赛 research competition with a paper on histology patch classification and neural network architectures.
-
-## NYT "Growing up with AI" contest submission
-Submitted a piece to the New York Times "Growing up with AI" contest.
-
-## Completed Coursera course
-"Motion, Forces, Energy and Gravity: From Particles to Planets" by UNSW Sydney via Coursera.
+## Qiu Competition participation
+Participated in the Qiu research competition with a paper on histology patch classification and neural network architectures.

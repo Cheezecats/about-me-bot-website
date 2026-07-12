@@ -8,7 +8,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from backend import config
 from backend.reranker.scoring import rank_scores
-from backend.retrieval.bm25 import BM25Index, load_chunks
+from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build
 
 CROSS_ENCODER_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 OUTPUT_PATH = config.DATA_DIR / "ablation_results.json"
@@ -32,9 +32,7 @@ def _device() -> torch.device:
 
 
 def _load_bm25(chunks: list[dict]) -> BM25Index:
-    if config.BM25_INDEX_PATH.exists():
-        return BM25Index.load(config.BM25_INDEX_PATH)
-    return BM25Index.build(chunks)
+    return load_or_build()
 
 
 def _bm25_candidates(bm25, question, chunks_by_id, k) -> list[dict]:
@@ -136,14 +134,17 @@ def _run_finetuned(model, tokenizer, bm25, rows, chunks_by_id, device) -> dict:
     )
 
 
-def _run_zeroshot(bm25, rows, chunks_by_id) -> dict:
+def _run_zeroshot(bm25, rows, chunks_by_id, device) -> dict:
     from sentence_transformers import CrossEncoder
 
-    ce = CrossEncoder(CROSS_ENCODER_NAME)
+    ce = CrossEncoder(CROSS_ENCODER_NAME, device=str(device))
     if rows:
         warm = _bm25_candidates(bm25, rows[0]["question"], chunks_by_id, 10)
         if warm:
-            ce.predict([[rows[0]["question"], warm[0]["text"]]])
+            ce.predict(
+                [[rows[0]["question"], warm[0]["text"]]],
+                show_progress_bar=False,
+            )
     p1_list: list[float] = []
     hit3_list: list[float] = []
     mrr_list: list[float] = []
@@ -158,7 +159,7 @@ def _run_zeroshot(bm25, rows, chunks_by_id) -> dict:
             mrr_list.append(0.0)
             continue
         pairs = [[r["question"], c["text"]] for c in candidates]
-        scores = ce.predict(pairs).tolist()
+        scores = ce.predict(pairs, batch_size=32, show_progress_bar=False).tolist()
         ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
         lat.append(time.perf_counter() - t0)
         ranked_ids = [c["chunk_id"] for c, _ in ranked]
@@ -194,11 +195,11 @@ def run_ablation() -> dict:
     bm25_metrics = _run_bm25_only(bm25, rows)
     print(f"[ablation] bm25_only p@1={bm25_metrics['precision_at_1']:.4f}")
 
-    print("[ablation] running bm25 + zero-shot cross-encoder ...")
-    zeroshot_metrics = _run_zeroshot(bm25, rows, chunks_by_id)
+    device = _device()
+    print(f"[ablation] running bm25 + zero-shot cross-encoder on {device} ...")
+    zeroshot_metrics = _run_zeroshot(bm25, rows, chunks_by_id, device)
     print(f"[ablation] zeroshot p@1={zeroshot_metrics['precision_at_1']:.4f}")
 
-    device = _device()
     tokenizer = AutoTokenizer.from_pretrained(config.RERANKER_MODEL_DIR)
     model = AutoModelForSequenceClassification.from_pretrained(config.RERANKER_MODEL_DIR)
     model.to(device)

@@ -1,11 +1,13 @@
 import { writeFileSync, mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-const content = await import(join(root, "src", "data", "content.ts"));
+const content = await import(
+  pathToFileURL(join(root, "src", "data", "content.ts")).href,
+);
 
 const exportKeys = [
   "bio",

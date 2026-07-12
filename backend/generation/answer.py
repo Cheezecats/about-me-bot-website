@@ -12,6 +12,30 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 CONTEXT_TOP_N = 3
 OLLAMA_TIMEOUT = 30.0
 MIN_GROUNDING_OVERLAP = 2
+SENSITIVE_REQUEST_PATTERNS = [
+    r"\bpassword\b",
+    r"\b(?:phone|telephone)\s+number\b",
+    r"\bhome\s+address\b",
+    r"\bexact\s+(?:address|location)\b",
+    r"\b(?:bank|account)\s+number\b",
+    r"\bsocial\s+security\b",
+    r"\b(?:qq|wechat)\b",
+    r"\bpassport\s+number\b",
+    r"\bip\s+address\b",
+    r"\bdate\s+of\s+birth\b",
+    r"\bprivate\s+messages?\b",
+    r"\bmedical\s+history\b",
+    r"\bparents?\b",
+    r"\bfamily(?:'s|)\s+income\b",
+    r"\bdorm\s+room\b",
+]
+
+
+def is_sensitive_request(question: str) -> bool:
+    return any(
+        re.search(pattern, question, flags=re.IGNORECASE)
+        for pattern in SENSITIVE_REQUEST_PATTERNS
+    )
 
 
 def _build_context(chunks: list[dict]) -> str:
@@ -145,6 +169,7 @@ def answer_or_refuse(
     question: str,
     reranked_chunks: list[dict],
     history: list[dict] | None = None,
+    enforce_confidence_threshold: bool = True,
 ) -> dict:
     t_start = time.perf_counter()
 
@@ -157,10 +182,19 @@ def answer_or_refuse(
             "fallback_used": False,
             "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
         }
+    if is_sensitive_request(question):
+        return {
+            "status": "refused",
+            "answer": config.REFUSAL_MESSAGE,
+            "confidence": 0.0,
+            "sources": [],
+            "fallback_used": False,
+            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
+        }
     top_score = float(reranked_chunks[0].get("score", 0.0))
     top_n = reranked_chunks[:CONTEXT_TOP_N]
     sources = _build_sources(top_n)
-    if top_score < config.CONFIDENCE_THRESHOLD:
+    if enforce_confidence_threshold and top_score < config.CONFIDENCE_THRESHOLD:
         return {
             "status": "refused",
             "answer": config.REFUSAL_MESSAGE,

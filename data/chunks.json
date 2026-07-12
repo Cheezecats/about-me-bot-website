@@ -12,18 +12,6 @@
     }
   },
   {
-    "chunk_id": "achievements_completed_coursera_course_006",
-    "text": "## Completed Coursera course \"Motion, Forces, Energy and Gravity: From Particles to Planets\" by UNSW Sydney via Coursera.",
-    "content_hash": "561dc4323d81",
-    "metadata": {
-      "source": "extra",
-      "category": "achievements",
-      "title": "Completed Coursera course",
-      "heading_path": "Completed Coursera course",
-      "section_index": 6
-    }
-  },
-  {
     "chunk_id": "achievements_curieux_academic_journal_publication_002",
     "text": "## Curieux Academic Journal publication Research paper on Large Language Models (LLMs) was published in the Curieux Academic Journal.",
     "content_hash": "fb8255f36efc",
@@ -48,18 +36,6 @@
     }
   },
   {
-    "chunk_id": "achievements_nyt_growing_up_with_ai_contest_submissio_005",
-    "text": "## NYT \"Growing up with AI\" contest submission Submitted a piece to the New York Times \"Growing up with AI\" contest.",
-    "content_hash": "3ef8b854f073",
-    "metadata": {
-      "source": "extra",
-      "category": "achievements",
-      "title": "NYT \"Growing up with AI\" contest submission",
-      "heading_path": "NYT \"Growing up with AI\" contest submission",
-      "section_index": 5
-    }
-  },
-  {
     "chunk_id": "achievements_physics_bowl_national_silver_award_000",
     "text": "## Physics Bowl National Silver Award Earned the National Silver Award in the 2025 Physics Bowl (during 10th grade). International physics competition.",
     "content_hash": "39fc0dfd1f10",
@@ -73,13 +49,13 @@
   },
   {
     "chunk_id": "achievements_qiu_competition_participation_004",
-    "text": "## 丘竞赛 (Qiu Competition) participation Participated in the 丘竞赛 research competition with a paper on histology patch classification and neural network architectures.",
-    "content_hash": "60a2f92c233c",
+    "text": "## Qiu Competition participation Participated in the Qiu research competition with a paper on histology patch classification and neural network architectures.",
+    "content_hash": "6b0af24450bc",
     "metadata": {
       "source": "extra",
       "category": "achievements",
-      "title": "丘竞赛 (Qiu Competition) participation",
-      "heading_path": "丘竞赛 (Qiu Competition) participation",
+      "title": "Qiu Competition participation",
+      "heading_path": "Qiu Competition participation",
       "section_index": 4
     }
   },
@@ -109,8 +85,8 @@
   },
   {
     "chunk_id": "bio_bio_001",
-    "text": "Hi! I'm a 17-year-old student living in Shanghai. I'm passionate about technology, and I enjoy spending my time exploring a mix of digital and real-world interests.",
-    "content_hash": "90491b4f459e",
+    "text": "James introduces himself on his website: Hi! I'm a 17-year-old student living in Shanghai. I'm passionate about technology, and I enjoy spending my time exploring a mix of digital and real-world interests.",
+    "content_hash": "b569a1d7fa9c",
     "metadata": {
       "source": "site",
       "category": "bio",
@@ -121,8 +97,8 @@
   },
   {
     "chunk_id": "bio_bio_002",
-    "text": "I love gaming, especially FPS titles like Apex Legends and Overwatch. Outside of gaming, I'm heavily involved in sports such as ice hockey, tennis, and floorball. You'll also probably find me enjoying ice cream or anything apple-flavored—juice, pie, you name it.",
-    "content_hash": "1ee07b8d0232",
+    "text": "James introduces himself on his website: I love gaming, especially FPS titles like Apex Legends and Overwatch. Outside of gaming, I'm heavily involved in sports such as ice hockey, tennis, and floorball. You'll also probably find me enjoying ice cream or anything apple-flavored—juice, pie, you name it.",
+    "content_hash": "6246edc5573a",
     "metadata": {
       "source": "site",
       "category": "bio",
@@ -217,8 +193,8 @@
   },
   {
     "chunk_id": "bio_selfdescription_005",
-    "text": "## Self-description \"I'm a 17-year-old student living in Shanghai. I'm passionate about technology, and I enjoy spending my time exploring a mix of digital and real-world interests.\"",
-    "content_hash": "938773dbfe86",
+    "text": "## Self-description James describes himself as \"a 17-year-old student living in Shanghai\" who is passionate about technology and enjoys exploring a mix of digital and real-world interests.",
+    "content_hash": "b3d355755871",
     "metadata": {
       "source": "extra",
       "category": "bio",
@@ -337,8 +313,8 @@
   },
   {
     "chunk_id": "education_completed_coursera_course_009",
-    "text": "## Completed Coursera course \"Motion, Forces, Energy and Gravity: From Particles to Planets\" by UNSW Sydney via Coursera.",
-    "content_hash": "561dc4323d81",
+    "text": "## Completed Coursera course Completed the online Coursera course \"Motion, Forces, Energy and Gravity: From Particles to Planets\" by UNSW Sydney.",
+    "content_hash": "cc0ffa512c3b",
     "metadata": {
       "source": "extra",
       "category": "education",
@@ -913,8 +889,8 @@
   },
   {
     "chunk_id": "hobbies_photography_and_videography_001",
-    "text": "## Photography and videography Active photographer and videographer. Shoots with a Nikon Z8. Has photographed/filmed in Japan (Hokkaido), Italy (Tuscany), and Greece (Athens). Publishes videos on YouTube. Full gear: Nikon Z8, DJI Action 4, iPhone 13 Pro, NIKKOR 24-120mm F4 S, NIKKOR 85mm F1.8. Especially loves to shoot landscapes and scenery — photography makes travel more interesting and memorable.",
-    "content_hash": "047c06385eae",
+    "text": "## Photography and videography Active photographer and videographer. His primary camera is a Nikon Z8. Camera gear also includes a DJI Action 4 and iPhone 13 Pro; his lenses are a NIKKOR 24-120mm F4 S and NIKKOR 85mm F1.8. He has photographed and filmed in Japan (Hokkaido), Italy (Tuscany), and Greece (Athens), and publishes videos on YouTube.",
+    "content_hash": "a6944174c090",
     "metadata": {
       "source": "extra",
       "category": "hobbies",

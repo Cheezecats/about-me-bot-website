@@ -4,7 +4,7 @@
 Started electric guitar in 2025. Self-taught, learning through online tutorials and playing along to favorite tracks. Focuses on J-pop and rock genres. Also learning ACG (Anime, Comics, Games) guitar.
 
 ## Photography and videography
-Active photographer and videographer. Shoots with a Nikon Z8. Has photographed/filmed in Japan (Hokkaido), Italy (Tuscany), and Greece (Athens). Publishes videos on YouTube. Full gear: Nikon Z8, DJI Action 4, iPhone 13 Pro, NIKKOR 24-120mm F4 S, NIKKOR 85mm F1.8. Especially loves to shoot landscapes and scenery — photography makes travel more interesting and memorable.
+Active photographer and videographer. His primary camera is a Nikon Z8. Camera gear also includes a DJI Action 4 and iPhone 13 Pro; his lenses are a NIKKOR 24-120mm F4 S and NIKKOR 85mm F1.8. He has photographed and filmed in Japan (Hokkaido), Italy (Tuscany), and Greece (Athens), and publishes videos on YouTube.
 
 ## Digital drawing
 Does digital drawing as a creative outlet.

@@ -228,7 +228,7 @@ Ensure the computer is plugged into power and prevent sleep during the run.
 Expected early output:
 
 ```text
-[train] device=cuda train_rows=700 val_rows=150
+[train] device=cuda train_questions=140 val_questions=30 candidates_per_question=5
 ```
 
 If this says `device=cpu`, stop and return to the CUDA verification step.
@@ -238,12 +238,11 @@ The first run downloads `distilbert-base-uncased` from Hugging Face. Internet ac
 Expected epoch output resembles:
 
 ```text
-[train] epoch 1/3 train_loss=... train_acc=... val_loss=... val_acc=...
-[train] epoch 2/3 ...
-[train] epoch 3/3 ...
+[train] epoch 1/8 train_loss=... train_p@1=... train_mrr=... val_loss=... val_p@1=... val_mrr=...
+[train] epoch 2/8 ...
 ```
 
-The script may stop early after one non-improving validation epoch. This is expected behavior under the current `patience = 1` configuration.
+Training uses listwise cross-entropy: each question is trained against its one positive and four negative chunks as a ranking group. This avoids treating the 80% negative-class proportion as a meaningful accuracy result. The best model is selected by validation MRR, and training may stop after two non-improving validation epochs.
 
 On success, verify these outputs exist:
 
@@ -257,7 +256,7 @@ Get-Content data\training_history.json
 
 Some Transformers versions write `pytorch_model.bin` instead of `model.safetensors`; either is valid.
 
-## 8. Evaluate the trained model
+## 8. Evaluate the configured reranker backend
 
 ```powershell
 .venv\Scripts\python.exe -m backend.training.evaluate
@@ -266,7 +265,7 @@ Some Transformers versions write `pytorch_model.bin` instead of `model.safetenso
 This evaluates the production retrieval route:
 
 ```text
-question -> BM25 top 10 -> trained reranker -> ranking metrics
+question -> BM25 top 10 -> configured reranker -> ranking metrics
 ```
 
 It writes:
@@ -291,6 +290,8 @@ Record at least:
 
 Do not describe these metrics as final product accuracy. They measure chunk ranking, not whether Qwen produced a correct grounded answer.
 
+Compare the reranker with the `bm25_precision_at_1`, `bm25_hit_at_3`, and `bm25_mrr` fields in the same output. Do not deploy it merely because training completed: it must improve on the BM25 baseline on the held-out test set.
+
 ## 9. Calibrate the refusal threshold
 
 This step needs the curated unanswerable-question file:
@@ -301,13 +302,13 @@ Test-Path data\unanswerable_questions.jsonl
 Get-Content data\threshold_calibration.json
 ```
 
-The calibration script compares answerable test questions with unanswerable/private questions and writes the threshold analysis to:
+The calibration script selects a threshold using answerable validation questions and 70% of the unanswerable questions. It then reports the selected threshold on the untouched answerable test questions and the remaining unanswerable holdout questions. This prevents threshold selection from leaking test-set information.
 
 ```text
 data/threshold_calibration.json
 ```
 
-Do not change `CONFIDENCE_THRESHOLD` blindly. Change it only after recording the calibration result and explaining the chosen false-refusal versus unsafe-answer trade-off.
+The output includes `recommended_for_deployment`. Do not change `CONFIDENCE_THRESHOLD` unless this is `true`, the held-out rates are acceptable, and the reranker improves on BM25. A result of `false` means there is no threshold that is both sufficiently safe and sufficiently useful for this model.
 
 ## 10. Optional ablation study
 
@@ -319,10 +320,10 @@ BM25 + zero-shot MiniLM cross-encoder
 BM25 + fine-tuned DistilBERT
 ```
 
-Before running it, install its extra dependency because `sentence-transformers` is not yet part of the project's `ml` extra:
+The zero-shot cross-encoder is included in the project's `ml` extra. Before running the ablation, install the reproducible extras:
 
 ```powershell
-uv pip install sentence-transformers
+uv sync --extra ml --extra dev
 ```
 
 Then run:
@@ -360,7 +361,7 @@ Create a short text file in that folder with:
 - final metrics;
 - any warnings or failures.
 
-## 12. Transfer the model to the Mac mini
+## 12. Transfer the fine-tuned model to the Mac mini (only if selected)
 
 Copy the entire `models/reranker/` folder, not only the weight file. The Mac needs model configuration and tokenizer files too.
 
@@ -382,7 +383,7 @@ On the Mac, place it at:
 about-me-bot-website/models/reranker/
 ```
 
-Then verify API health reports `reranker_loaded: true`.
+The default zero-shot cross-encoder is downloaded from Hugging Face on first use, so it does not need this file transfer. Only enable any reranker when `threshold_calibration.json` reports `recommended_for_deployment: true`. Set `RERANKER_ENABLED=true` and choose `RERANKER_BACKEND=zeroshot_cross_encoder` or `RERANKER_BACKEND=finetuned_distilbert`, then verify API health reports both `reranker_enabled: true` and `reranker_loaded: true`.
 
 ## 13. Common failures
 
@@ -423,7 +424,7 @@ Then rebuild the generated datasets.
 
 ### GPU out-of-memory error
 
-The current batch size is 16 and should be comfortable on an RTX 4080. If it fails, reduce `TRAIN_BATCH_SIZE` in `backend/config.py` to 8, rebuild nothing, and rerun training. Record the changed setting in the experiment log.
+The current batch size is 16 question groups (80 question/chunk pairs) and should be comfortable on an RTX 4080. If it fails, reduce `TRAIN_BATCH_SIZE` in `backend/config.py` to 8, rebuild nothing, and rerun training. Record the changed setting in the experiment log.
 
 ### `sentence_transformers` error during ablation
 

@@ -19,6 +19,10 @@ ml = [
     "transformers>=4.44.0",
     "datasets>=2.20.0",
     "scikit-learn>=1.5.0",
+    "sentence-transformers>=3.0.0",
+]
+ablation = [
+    "sentence-transformers>=3.0.0",
 ]
 dev = [
     "pytest>=8.0.0",

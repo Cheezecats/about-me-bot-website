@@ -106,7 +106,8 @@ class BM25Index:
         return cls.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
-def load_chunks(path: Path = config.CHUNKS_PATH) -> list[dict]:
+def load_chunks(path: Path | None = None) -> list[dict]:
+    path = path or config.CHUNKS_PATH
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -130,6 +131,18 @@ def build_and_save() -> BM25Index:
     index.save(config.BM25_INDEX_PATH)
     print(f"[bm25] indexed {index.n_docs} chunks, avgdl={index.avgdl:.2f}, vocab={len(index.inverted_index)}")
     return index
+
+
+def load_or_build() -> BM25Index:
+    """Load a current index, rebuilding it when the chunk source changed."""
+
+    if (
+        config.BM25_INDEX_PATH.exists()
+        and config.CHUNKS_PATH.exists()
+        and config.BM25_INDEX_PATH.stat().st_mtime_ns >= config.CHUNKS_PATH.stat().st_mtime_ns
+    ):
+        return BM25Index.load(config.BM25_INDEX_PATH)
+    return build_and_save()
 
 
 if __name__ == "__main__":

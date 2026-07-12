@@ -22,13 +22,35 @@ def _device() -> torch.device:
 
 
 class Reranker:
-    def __init__(self, model_dir: Path = config.RERANKER_MODEL_DIR) -> None:
+    def __init__(
+        self,
+        model_dir: Path = config.RERANKER_MODEL_DIR,
+        backend: str = config.RERANKER_BACKEND,
+    ) -> None:
+        self.device = _device()
+        self.backend = backend
+        if backend == "zeroshot_cross_encoder":
+            try:
+                from sentence_transformers import CrossEncoder
+            except ImportError as exc:
+                raise RerankerUnavailable(
+                    "sentence-transformers is required for the zero-shot cross-encoder. "
+                    "Install the project's ml extra."
+                ) from exc
+            self.cross_encoder = CrossEncoder(
+                config.ZEROSHOT_CROSS_ENCODER_MODEL, device=str(self.device)
+            )
+            self.tokenizer = None
+            self.model = None
+            return
+        if backend != "finetuned_distilbert":
+            raise RerankerUnavailable(f"Unknown reranker backend: {backend!r}")
         if not model_dir.exists():
             raise RerankerUnavailable(
                 f"Reranker model not found at {model_dir}. "
                 "Train it first with `python -m backend.training.train_reranker`."
             )
-        self.device = _device()
+        self.cross_encoder = None
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_dir)
         self.model.to(self.device)
@@ -39,6 +61,14 @@ class Reranker:
         if not chunks:
             return []
         texts = [c["text"] for c in chunks]
+        if self.backend == "zeroshot_cross_encoder":
+            pairs = [[query, text] for text in texts]
+            scores = self.cross_encoder.predict(
+                pairs, batch_size=32, show_progress_bar=False
+            ).tolist()
+            scored = [{**c, "score": round(float(s), 4)} for c, s in zip(chunks, scores)]
+            scored.sort(key=lambda x: x["score"], reverse=True)
+            return scored
         enc = self.tokenizer(
             [query] * len(texts),
             texts,
