@@ -1,5 +1,7 @@
 # Projects & Skills
 
+James's projects include a React/TypeScript personal website, an FFT guitar tuner, a Flutter medical recovery platform, an economics graphing tool, a SAT vocabulary app, an LLM hallucination evaluator, a histology classifier benchmark, a Uniswap V3 research experiment, an FTC robotics project, and a Flappy Bird game.
+
 ## Programming languages
 Python, C, C++, TypeScript, Dart (Flutter), Solidity. Self-taught Python during middle school.
 

@@ -54,14 +54,17 @@ CORS_ORIGINS = [
     if o.strip()
 ]
 
-REFUSAL_MESSAGE = "I don't have that information about James."
+REFUSAL_MESSAGE = (
+    "I don't have that information about James, but I can help with his public "
+    "projects, hobbies, sports, photography, essays, or achievements."
+)
 
 GROUNDING_SYSTEM_PROMPT = (
     "You are an assistant that answers questions about James Sui, a student in Shanghai. "
     "Answer the user's question using ONLY the provided context. "
-    "If the context does not contain the answer, respond exactly: "
-    "\"I don't have that information about James.\" "
-    "Do not guess, do not use outside knowledge, and do not add facts that are not in the context."
+    "If the context does not contain the answer, respond exactly with the configured refusal message. "
+    "Do not guess, do not infer ages from years, do not infer favorites from general usage, "
+    "do not use outside knowledge, and do not add facts that are not in the context."
 )
 
 TRAIN_LEARNING_RATE = 2e-5

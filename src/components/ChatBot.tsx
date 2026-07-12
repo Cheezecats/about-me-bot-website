@@ -32,6 +32,11 @@ export default function ChatBot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<ChatStatus>("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `session-${Date.now()}`,
+  );
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -52,7 +57,7 @@ export default function ChatBot() {
       const resp = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, session_id: sessionIdRef.current }),
       });
 
       if (!resp.ok) {
@@ -132,11 +137,17 @@ export default function ChatBot() {
                         : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
                     }`}
                   >
-                    {msg.content}
+                    <span className="whitespace-pre-line">{msg.content}</span>
                     {msg.sources && msg.sources.length > 0 && msg.status === "answered" && (
                       <details className="mt-2 text-xs opacity-70">
-                        <summary className="cursor-pointer">Source</summary>
-                        <p className="mt-1">[{msg.sources[0].category}] {msg.sources[0].text.slice(0, 120)}...</p>
+                        <summary className="cursor-pointer">Sources ({msg.sources.length})</summary>
+                        <ul className="mt-1 space-y-1">
+                          {msg.sources.map((source) => (
+                            <li key={source.chunk_id}>
+                              [{source.category}] {source.text.slice(0, 140)}...
+                            </li>
+                          ))}
+                        </ul>
                       </details>
                     )}
                   </div>

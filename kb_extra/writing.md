@@ -1,5 +1,7 @@
 # Writing & Essays
 
+James has written essays and research papers about LLM hallucinations, medical imaging and histology classifiers, Uniswap V3, and an IB Physics guitar tuner project.
+
 ## LLM Hallucination research paper
 "The Hallucination Problem in LLMs: Why Scaling Parameters Isn't Enough" - investigates hallucinations in large language models, examining why they occur and how they relate to model size. Uses Gemma-3 models (1B-12B parameters) on the SimpleQA benchmark (4,326 QA pairs). Results: Gemma-1B hallucination rate 97.11%, Gemma-4B 95.19%, Gemma-12B 93.85%. Published in the Curieux Academic Journal.
 

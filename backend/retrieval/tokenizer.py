@@ -37,6 +37,56 @@ STOPWORDS = frozenset(
     """.split()
 )
 
+# Query-only normalization. Documents keep their original tokens so the
+# index remains stable, while common user variations can still match the
+# same fact (for example, "favorite game" -> "favorite games").
+QUERY_CORRECTIONS = {
+    "favoriate": "favorite",
+    "favouite": "favorite",
+    "favrite": "favorite",
+    "favorate": "favorite",
+    "photographt": "photography",
+    "photograpy": "photography",
+    "photograhpy": "photography",
+    "hobbys": "hobbies",
+    "travelled": "traveled",
+    "travelling": "traveling",
+}
+
+QUERY_EXPANSIONS = {
+    "game": ("games", "favorite", "favorites", "competitive", "noncompetitive"),
+    "games": ("game", "favorite", "favorites", "competitive", "noncompetitive"),
+    "hobby": ("hobbies", "interest", "interests"),
+    "hobbies": ("hobby", "interest", "interests"),
+    "favorite": ("favourite",),
+    "favourite": ("favorite",),
+    "photography": ("photographer", "videography", "camera", "nikon", "lenses"),
+    "photographer": ("photography", "videography", "camera"),
+    "essay": ("essays", "paper", "papers", "research", "writing"),
+    "essays": ("essay", "paper", "papers", "research", "writing"),
+    "paper": ("papers", "essay", "essays", "research", "writing"),
+    "papers": ("paper", "essay", "essays", "research", "writing"),
+    "sports": ("sport", "skiing", "hockey", "tennis", "floorball", "soccer"),
+    "sport": ("sports", "skiing", "hockey", "tennis", "floorball", "soccer"),
+    "music": ("song", "artist", "artists", "band", "bands", "guitar", "jpop", "rock"),
+    "enjoy": ("enjoys", "like", "likes", "favorite", "favorites"),
+    "enjoys": ("enjoy", "like", "likes", "favorite", "favorites"),
+    "instrument": ("instruments", "guitar"),
+    "instruments": ("instrument", "guitar"),
+    "traveled": ("travel", "travelled", "visited"),
+    "travel": ("traveled", "travelled", "visited"),
+    "project": ("projects", "built", "created", "website", "research"),
+    "projects": ("project", "built", "created", "website", "research"),
+    "school": ("education", "studies", "attend", "ibdp"),
+    "attend": ("school", "education", "studies"),
+    "study": ("studies", "school", "education"),
+    "award": ("awards", "achievement", "achievements", "earned", "silver"),
+    "awards": ("award", "achievement", "achievements", "earned", "silver"),
+    "achievement": ("achievements", "award", "awards", "earned"),
+    "achievements": ("achievement", "award", "awards", "earned"),
+    "won": ("earned", "award", "awards", "achievement"),
+}
+
 
 def _normalize_aliases(text: str) -> str:
     return _ALIAS_PATTERN.sub(lambda m: ALIASES[m.group(1)], text)
@@ -48,3 +98,18 @@ def tokenize(text: str) -> list[str]:
     lowered = _normalize_aliases(text.lower())
     tokens = _TOKEN_SPLIT.split(lowered)
     return [t for t in tokens if t and t not in STOPWORDS]
+
+
+def tokenize_query(text: str) -> list[str]:
+    """Tokenize a user query with conservative spelling and form expansion."""
+
+    base_tokens = tokenize(text)
+    tokens: list[str] = []
+    for token in base_tokens:
+        normalized = QUERY_CORRECTIONS.get(token, token)
+        if normalized not in tokens:
+            tokens.append(normalized)
+        for expansion in QUERY_EXPANSIONS.get(normalized, ()):
+            if expansion not in tokens:
+                tokens.append(expansion)
+    return tokens

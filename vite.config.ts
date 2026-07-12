@@ -23,4 +23,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ["p5"],
   },
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
 });

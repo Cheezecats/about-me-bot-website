@@ -1,5 +1,7 @@
 # Hobbies & Interests
 
+James's hobbies and interests include photography and videography, gaming, sports, electric guitar, digital drawing, PC building, and using AI/LLM tools for learning.
+
 ## Electric guitar
 Started electric guitar in 2025. Self-taught, learning through online tutorials and playing along to favorite tracks. Focuses on J-pop and rock genres. Also learning ACG (Anime, Comics, Games) guitar.
 

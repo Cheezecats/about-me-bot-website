@@ -1,5 +1,17 @@
 [
   {
+    "chunk_id": "achievements_achievements_awards_000",
+    "text": "## Achievements & Awards James's achievements include the 2025 Physics Bowl National Silver Award, a national top 5% placement in China Thinks Big, publication in the Curieux Academic Journal, participation in the Lumiere Research Program, and participation in the 丘成桐中学科学奖 (Qiu Competition).",
+    "content_hash": "79df8c76ab50",
+    "metadata": {
+      "source": "extra",
+      "category": "achievements",
+      "title": "Achievements & Awards",
+      "heading_path": "Achievements & Awards",
+      "section_index": 0
+    }
+  },
+  {
     "chunk_id": "achievements_china_thinks_big_ctb_top_5_001",
     "text": "## China Thinks Big (CTB) Top 5% Earned a national top 5% placement in the China Thinks Big (CTB) competition for a team project (team of 4) examining anti-collision effectiveness of cellular-structured materials (9th grade).",
     "content_hash": "f794795249d6",
@@ -49,13 +61,13 @@
   },
   {
     "chunk_id": "achievements_qiu_competition_participation_004",
-    "text": "## Qiu Competition participation Participated in the Qiu research competition with a paper on histology patch classification and neural network architectures.",
-    "content_hash": "6b0af24450bc",
+    "text": "## 丘成桐中学科学奖 (Qiu Competition) Participated in the 丘成桐中学科学奖 (Qiu Competition) with a paper on histology patch classification and neural network architectures.",
+    "content_hash": "5f1ec709da45",
     "metadata": {
       "source": "extra",
       "category": "achievements",
-      "title": "Qiu Competition participation",
-      "heading_path": "Qiu Competition participation",
+      "title": "丘成桐中学科学奖 (Qiu Competition)",
+      "heading_path": "丘成桐中学科学奖 (Qiu Competition)",
       "section_index": 4
     }
   },
@@ -297,6 +309,18 @@
       "title": "YouTube channel",
       "heading_path": "YouTube channel",
       "section_index": 1
+    }
+  },
+  {
+    "chunk_id": "education_education_000",
+    "text": "## Education James studies the IBDP at YK Pao School, an international high school in Shanghai. He is currently in Grade 11 and takes Higher Level Computer Science, Mathematics AA, and Physics.",
+    "content_hash": "3072cd8f22fe",
+    "metadata": {
+      "source": "extra",
+      "category": "education",
+      "title": "Education",
+      "heading_path": "Education",
+      "section_index": 0
     }
   },
   {
@@ -873,6 +897,18 @@
       "title": "Founding clubs",
       "heading_path": "Founding clubs",
       "section_index": 6
+    }
+  },
+  {
+    "chunk_id": "hobbies_hobbies_interests_000",
+    "text": "## Hobbies & Interests James's hobbies and interests include photography and videography, gaming, sports, electric guitar, digital drawing, PC building, and using AI/LLM tools for learning.",
+    "content_hash": "41e1d238ee89",
+    "metadata": {
+      "source": "extra",
+      "category": "hobbies",
+      "title": "Hobbies & Interests",
+      "heading_path": "Hobbies & Interests",
+      "section_index": 0
     }
   },
   {
@@ -1572,6 +1608,18 @@
     }
   },
   {
+    "chunk_id": "projects_skills_projects_skills_000",
+    "text": "## Projects & Skills James's projects include a React/TypeScript personal website, an FFT guitar tuner, a Flutter medical recovery platform, an economics graphing tool, a SAT vocabulary app, an LLM hallucination evaluator, a histology classifier benchmark, a Uniswap V3 research experiment, an FTC robotics project, and a Flappy Bird game.",
+    "content_hash": "18ae630f181f",
+    "metadata": {
+      "source": "extra",
+      "category": "projects_skills",
+      "title": "Projects & Skills",
+      "heading_path": "Projects & Skills",
+      "section_index": 0
+    }
+  },
+  {
     "chunk_id": "projects_skills_programming_languages_000",
     "text": "## Programming languages Python, C, C++, TypeScript, Dart (Flutter), Solidity. Self-taught Python during middle school.",
     "content_hash": "34c11ecd0f61",
@@ -1725,6 +1773,18 @@
       "title": "Tennis",
       "heading_path": "Tennis",
       "section_index": 2
+    }
+  },
+  {
+    "chunk_id": "sports_sports_000",
+    "text": "## Sports James plays skiing, ice hockey, tennis, floorball, and soccer. He started skiing in 2013, ice hockey in 2015, tennis in 2018, and floorball in 2023; he plays soccer as a forward.",
+    "content_hash": "9b8be743f899",
+    "metadata": {
+      "source": "extra",
+      "category": "sports",
+      "title": "Sports",
+      "heading_path": "Sports",
+      "section_index": 0
     }
   },
   {
@@ -1896,6 +1956,18 @@
     }
   },
   {
+    "chunk_id": "travel_travel_000",
+    "text": "## Travel James has travelled to Japan, Greece, Italy, and Xinjiang, and has travelled or trained abroad in the United States and Russia through ice hockey.",
+    "content_hash": "e3d7950c79be",
+    "metadata": {
+      "source": "extra",
+      "category": "travel",
+      "title": "Travel",
+      "heading_path": "Travel",
+      "section_index": 0
+    }
+  },
+  {
     "chunk_id": "travel_united_states_los_angeles_005",
     "text": "## United States (Los Angeles) Trained in ice hockey in Los Angeles with coaches from the Los Angeles Kings team.",
     "content_hash": "d5a68175961b",
@@ -1953,6 +2025,18 @@
       "title": "Japan Winter",
       "heading_path": "Japan Winter",
       "section_index": 1
+    }
+  },
+  {
+    "chunk_id": "writing_writing_essays_000",
+    "text": "## Writing & Essays James has written essays and research papers about LLM hallucinations, medical imaging and histology classifiers, Uniswap V3, and an IB Physics guitar tuner project.",
+    "content_hash": "be19827f9198",
+    "metadata": {
+      "source": "extra",
+      "category": "writing",
+      "title": "Writing & Essays",
+      "heading_path": "Writing & Essays",
+      "section_index": 0
     }
   },
   {
