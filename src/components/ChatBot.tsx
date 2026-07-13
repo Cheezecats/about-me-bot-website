@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
-type ChatStatus = "idle" | "loading" | "answered" | "refused" | "error";
+type ChatStatus = "idle" | "loading" | "answered" | "refused" | "clarification" | "unavailable" | "error";
 
 interface ChatSource {
   chunk_id: string;
   text: string;
   category: string;
+  title?: string;
+  label?: string;
+  source?: string;
 }
 
 interface ChatResponse {
@@ -15,6 +18,7 @@ interface ChatResponse {
   confidence: number;
   sources: ChatSource[];
   fallback_used: boolean;
+  reason?: string;
 }
 
 interface Message {
@@ -61,7 +65,14 @@ export default function ChatBot() {
       });
 
       if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
+        const errorPayload = await resp.json().catch(() => null);
+        throw new Error(
+          typeof errorPayload?.answer === "string"
+            ? errorPayload.answer
+            : resp.status === 429
+            ? "Too many requests right now. Please wait a moment and try again."
+            : "The chatbot is temporarily unavailable.",
+        );
       }
 
       const data: ChatResponse = await resp.json();
@@ -72,13 +83,26 @@ export default function ChatBot() {
         sources: data.sources,
       };
       setMessages((prev) => [...prev, assistantMsg]);
-      setStatus(data.status === "answered" ? "answered" : data.status === "refused" ? "refused" : "error");
-    } catch {
+      setStatus(
+        data.status === "answered"
+          ? "answered"
+          : data.status === "refused"
+          ? "refused"
+          : data.status === "clarification"
+          ? "clarification"
+          : data.status === "unavailable"
+          ? "unavailable"
+          : "error",
+      );
+    } catch (error) {
       const errorMsg: Message = {
         role: "assistant",
         content: "Sorry, I couldn't reach the server. Please try again later.",
         status: "error",
       };
+      if (error instanceof Error && error.message !== "") {
+        errorMsg.content = error.message;
+      }
       setMessages((prev) => [...prev, errorMsg]);
       setStatus("error");
     }
@@ -130,9 +154,9 @@ export default function ChatBot() {
                     className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
                       msg.role === "user"
                         ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                        : msg.status === "error"
+                        : msg.status === "error" || msg.status === "unavailable"
                         ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        : msg.status === "refused"
+                        : msg.status === "refused" || msg.status === "clarification"
                         ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
                         : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
                     }`}
@@ -144,7 +168,8 @@ export default function ChatBot() {
                         <ul className="mt-1 space-y-1">
                           {msg.sources.map((source) => (
                             <li key={source.chunk_id}>
-                              [{source.category}] {source.text.slice(0, 140)}...
+                              <span className="font-medium">{source.label || source.title || source.category}</span>
+                              <span className="ml-1">{source.text.replace(/^#+\s*[^\n]+\s*/, "").slice(0, 140)}...</span>
                             </li>
                           ))}
                         </ul>

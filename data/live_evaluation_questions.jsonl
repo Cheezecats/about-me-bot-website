@@ -1,0 +1,6 @@
+{"question":"How did James learn to code?","expected_status":"answered","terms":["Python","middle school"]}
+{"question":"Tell me about James's PC building experience.","expected_status":"answered","terms":["PC","hardware"]}
+{"question":"Why does James enjoy gaming?","expected_status":"answered","terms":["relax","friends"]}
+{"question":"What did James learn from ice hockey?","expected_status":"answered","terms":["teamwork"]}
+{"question":"What is James's LLM research paper about?","expected_status":"answered","terms":["hallucination","model"]}
+{"question":"What is James's father's hometown?","expected_status":"refused","terms":["public projects"]}

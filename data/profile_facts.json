@@ -1,0 +1,125 @@
+{
+  "_sources": {
+    "favorite_games": ["kb_extra/favorites.md", "kb_extra/gaming.md"],
+    "favorite_food": ["kb_extra/favorites.md", "kb_extra/hobbies.md"],
+    "favorite_season": ["kb_extra/favorites.md"],
+    "favorite_music": ["kb_extra/favorites.md"],
+    "hobbies": ["kb_extra/hobbies.md"],
+    "guitar": ["kb_extra/hobbies.md"],
+    "photography": ["kb_extra/hobbies.md"],
+    "sports": ["kb_extra/sports.md"],
+    "travel": ["kb_extra/travel.md"],
+    "education": ["kb_extra/education.md"],
+    "projects": ["kb_extra/projects_skills.md"],
+    "programming_languages": ["kb_extra/projects_skills.md"],
+    "writing": ["kb_extra/writing.md"],
+    "writing_details": ["kb_extra/writing.md"],
+    "achievements": ["kb_extra/achievements.md"],
+    "apex_rank": ["kb_extra/apex_rank.md"]
+  },
+  "favorite_games": {
+    "competitive": ["Apex Legends", "CS:GO/CS2", "Valorant"],
+    "non_competitive": ["千恋万花 (Sennen Koi Hana)", "Cyberpunk 2077", "GTA 5"],
+    "other": ["Overwatch", "Civilization", "Mario Kart"]
+  },
+  "favorite_food": {
+    "primary": "Japanese ramen",
+    "also_enjoys": ["ice cream", "apple-flavored foods"]
+  },
+  "favorite_season": {
+    "primary": "winter",
+    "detail": "especially with snow"
+  },
+  "dislikes": [
+    {"item": "summer", "reason": "sweating doesn't feel nice"}
+  ],
+  "favorite_music": {
+    "song": "君の神様になりたい",
+    "song_artist": "こはならむ",
+    "artist": "DECO*27",
+    "alternate_artist": "Hatsune Miku",
+    "bands": ["Yorushika", "Hitorie"],
+    "genres": ["J-pop", "rock"]
+  },
+  "apex_rank": {
+    "game": "Apex Legends",
+    "rank": "Diamond 2",
+    "season": "Season 22"
+  },
+  "hobbies": [
+    "photography and videography",
+    "gaming",
+    "sports",
+    "electric guitar",
+    "digital drawing",
+    "PC building",
+    "using AI/LLM tools for learning"
+  ],
+  "guitar": {
+    "instrument": "electric guitar",
+    "started": 2025,
+    "learning": "self-taught",
+    "genres": ["J-pop", "rock", "ACG"]
+  },
+  "photography": {
+    "primary_camera": "Nikon Z8",
+    "additional_cameras": ["DJI Action 4", "iPhone 13 Pro"],
+    "lenses": ["NIKKOR 24-120mm F4 S", "NIKKOR 85mm F1.8"]
+  },
+  "sports": [
+    {"name": "skiing", "started": 2013},
+    {"name": "ice hockey", "started": 2015, "position": "defender"},
+    {"name": "tennis", "started": 2018},
+    {"name": "floorball", "started": 2023},
+    {"name": "soccer", "position": "forward"}
+  ],
+  "travel": {
+    "visited": ["Japan", "Greece", "Italy", "Xinjiang"],
+    "hockey_training_or_competition": ["United States", "Russia"],
+    "favorite_place": "Japan, especially Tokyo"
+  },
+  "education": {
+    "school": "YK Pao School",
+    "program": "IBDP",
+    "grade": "Grade 11",
+    "higher_level_subjects": ["Computer Science", "Mathematics AA", "Physics"],
+    "expected_graduation": 2027,
+    "previous_curriculum": "IGCSE",
+    "self_taught": ["Python", "SolidWorks"]
+  },
+  "projects": [
+    {"name": "React/TypeScript personal website", "tags": ["web", "typescript", "react"]},
+    {"name": "FFT guitar tuner", "tags": ["physics", "audio", "web"]},
+    {"name": "Flutter medical recovery platform", "tags": ["flutter", "dart", "ai", "full-stack"]},
+    {"name": "Economics graphing tool", "tags": ["python", "economics"]},
+    {"name": "SAT vocabulary app", "tags": ["web", "typescript", "education"]},
+    {"name": "LLM hallucination evaluator", "tags": ["ai", "llm", "research", "python"]},
+    {"name": "Histology classifier benchmark", "tags": ["ai", "computer vision", "research", "python"]},
+    {"name": "Uniswap V3 research experiment", "tags": ["solidity", "blockchain", "research"]},
+    {"name": "FTC robotics project", "tags": ["robotics", "hardware"]},
+    {"name": "Flappy Bird game", "tags": ["python", "pygame"]}
+  ],
+  "programming_languages": ["Python", "C", "C++", "TypeScript", "Dart (Flutter)", "Solidity"],
+  "writing": [
+    "LLM hallucination research paper",
+    "Histology classification research paper",
+    "Combined research paper for 丘成桐中学科学奖",
+    "NYT Growing up with AI submission",
+    "TOK Exhibition",
+    "Extended Essay on Uniswap V3",
+    "IB Physics IA on an FFT guitar tuner",
+    "Math IA applying a Markov chain model to Apex Legends"
+  ],
+  "writing_details": {
+    "extended_essay": "James's Extended Essay is an interdisciplinary Computer Science and Economics essay about Uniswap V3, including capital efficiency, slippage, and impermanent loss.",
+    "math_ia": "James's Math IA applies a Markov chain packet-loss model to Apex Legends, using a 20Hz tick rate and maximum-likelihood matrices.",
+    "physics_ia": "James's IB Physics IA investigates the relationship between guitar-string gauge, tension, and fundamental frequency using an FFT guitar tuner."
+  },
+  "achievements": [
+    "2025 Physics Bowl National Silver Award",
+    "National top 5% placement in China Thinks Big",
+    "Research publication in the Curieux Academic Journal",
+    "Participation in the Lumiere Research Program",
+    "Participation in the 丘成桐中学科学奖 (Qiu Competition)"
+  ]
+}

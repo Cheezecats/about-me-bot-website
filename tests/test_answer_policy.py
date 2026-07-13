@@ -44,6 +44,21 @@ def test_non_profile_game_recommendation_does_not_answer_about_james():
     assert result["answer"] == answer.config.REFUSAL_MESSAGE
 
 
+def test_unsupported_favorite_detail_does_not_silently_substitute_music():
+    result = answer.answer_or_refuse(
+        "What is James's favorite restaurant?",
+        [{
+            "chunk_id": "music",
+            "text": "## Favorite music Current favorite song: a song. Favorite bands: Yorushika.",
+            "score": 10.0,
+            "metadata": {"title": "Favorite music", "category": "favorites"},
+        }],
+        enforce_confidence_threshold=False,
+    )
+    assert result["status"] == "refused"
+    assert "restaurant" not in result["answer"].lower() or "don't have" in result["answer"].lower()
+
+
 def test_refusal_variants_are_canonicalized():
     assert answer.normalize_refusal("The provided context does not contain that information.") == answer.config.REFUSAL_MESSAGE
 
@@ -277,3 +292,20 @@ def test_sensitive_requests_refuse_even_with_context(monkeypatch):
 
     assert result["status"] == "refused"
     assert result["answer"] == answer.config.REFUSAL_MESSAGE
+
+
+def test_generation_failure_does_not_return_raw_context(monkeypatch):
+    monkeypatch.setattr(
+        answer,
+        "generate_answer",
+        lambda question, context_chunks, history=None: (context_chunks[0]["text"], True),
+    )
+    result = answer.answer_or_refuse(
+        "What camera does James use?",
+        [{"chunk_id": "fact", "text": "Private-looking raw retrieval text", "score": 1.0, "metadata": {}}],
+        enforce_confidence_threshold=False,
+    )
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "llm_unavailable"
+    assert result["answer"] == answer.config.UNAVAILABLE_MESSAGE
+    assert "raw retrieval" not in result["answer"]

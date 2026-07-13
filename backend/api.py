@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,7 +17,9 @@ from backend.generation.answer import (
     merge_compound_results,
     split_compound_question,
 )
-from backend.generation.conversation import ConversationState
+from backend.generation.conversation import ConversationState, ConversationStore
+from backend.generation.intent import QueryIntent, detect_intent
+from backend.generation.query_plan import build_query_plan
 from backend.reranker.inference import Reranker, RerankerUnavailable
 from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build, retrieve
 
@@ -27,6 +30,24 @@ def _load_index() -> BM25Index:
     return load_or_build()
 
 
+class _RateLimiter:
+    def __init__(self, limit: int = config.MAX_REQUESTS_PER_MINUTE) -> None:
+        self.limit = limit
+        self._hits: dict[str, list[float]] = {}
+
+    def allow(self, key: str) -> bool:
+        now = time.monotonic()
+        recent = [timestamp for timestamp in self._hits.get(key, []) if now - timestamp < 60]
+        if len(recent) >= self.limit:
+            self._hits[key] = recent
+            return False
+        recent.append(now)
+        self._hits[key] = recent
+        if len(self._hits) > 2000:
+            self._hits = {client: timestamps for client, timestamps in self._hits.items() if timestamps}
+        return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.bm25_index = _load_index()
@@ -34,6 +55,7 @@ async def lifespan(app: FastAPI):
     app.state.reranker = None
     app.state.reranker_loaded = False
     app.state.reranker_enabled = config.RERANKER_ENABLED
+    app.state.query_planner_enabled = config.QUERY_PLANNER_ENABLED
     if config.RERANKER_ENABLED:
         try:
             app.state.reranker = Reranker()
@@ -44,13 +66,18 @@ async def lifespan(app: FastAPI):
     if config.LLM_BACKEND == "groq" and not config.GROQ_API_KEY:
         import warnings
         warnings.warn("LLM_BACKEND=groq but GROQ_API_KEY is not set; generation will fail at request time.")
-    app.state.conversations = {}
+    app.state.conversations = ConversationStore()
+    app.state.rate_limiter = _RateLimiter()
     yield
 
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
-_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
+_allowed_hosts = [
+    h.strip()
+    for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1],testserver").split(",")
+    if h.strip()
+]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts)
 app.add_middleware(
     CORSMiddleware,
@@ -61,9 +88,19 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def security_headers(http_request: Request, call_next):
+    response = await call_next(http_request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    return response
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=500)
-    session_id: str | None = None
+    session_id: str | None = Field(default=None, max_length=config.MAX_SESSION_ID_LEN, pattern=r"^[A-Za-z0-9._:-]+$")
 
     @field_validator("question")
     @classmethod
@@ -77,6 +114,9 @@ class ChatSource(BaseModel):
     chunk_id: str
     text: str
     category: str
+    title: str = ""
+    label: str = ""
+    source: str = "knowledge base"
 
 
 class ChatResponse(BaseModel):
@@ -87,6 +127,12 @@ class ChatResponse(BaseModel):
     fallback_used: bool
     retrieval_score: float = 0.0
     retrieval_method: str = "none"
+    reason: str = ""
+    generation_fallback_used: bool = False
+    reranker_fallback_used: bool = False
+    normalized_query: str = ""
+    planner_used: bool = False
+    planner_confidence: float = 0.0
 
 
 @app.get("/api/health")
@@ -97,35 +143,66 @@ async def health():
         "reranker_loaded": getattr(app.state, "reranker_loaded", False),
         "bm25_loaded": getattr(app.state, "bm25_index", None) is not None,
         "retrieval_method": "reranker" if getattr(app.state, "reranker_loaded", False) else "bm25",
+        "llm_backend": config.LLM_BACKEND,
+        "llm_model": config.LLM_MODEL,
+        "query_planner_enabled": getattr(app.state, "query_planner_enabled", config.QUERY_PLANNER_ENABLED),
+        "local_only_default": os.getenv("HOST", "127.0.0.1") in {"127.0.0.1", "localhost", "::1"},
     }
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, http_request: Request):
+    client_host = http_request.client.host if http_request.client else "unknown"
+    if not app.state.rate_limiter.allow(client_host):
+        limited = ChatResponse(
+            status="unavailable",
+            answer="Too many requests right now. Please wait a moment and try again.",
+            confidence=0.0,
+            sources=[],
+            fallback_used=False,
+            reason="rate_limited",
+            generation_fallback_used=False,
+            reranker_fallback_used=app.state.reranker is None,
+        )
+        return JSONResponse(status_code=429, content=limited.model_dump())
+
     question = request.question
     index: BM25Index = app.state.bm25_index
     chunks: list[dict] = app.state.chunks
 
-    conversations: dict[str, ConversationState] = app.state.conversations
+    conversations: ConversationStore = app.state.conversations
     state: ConversationState | None = None
     if request.session_id:
         state = conversations.get(request.session_id)
-        if state is None:
-            state = ConversationState()
-            conversations[request.session_id] = state
 
     reranker: Reranker | None = app.state.reranker
     fallback_used = False
+    normalized_queries: list[str] = []
+    planner_confidences: list[float] = []
+    clause_intents: list[QueryIntent] = []
     history = state.build_history_messages() if state is not None else None
     questions = split_compound_question(question)
     clause_results: list[dict] = []
 
     try:
         for clause in questions:
-            query = state.augment_query(clause) if state is not None else clause
+            base_query = state.augment_query(clause) if state is not None else clause
+            if config.QUERY_PLANNER_ENABLED:
+                plan = build_query_plan(base_query)
+                query = plan.retrieval_query
+                semantic_question = plan.normalized_question
+                normalized_queries.append(plan.normalized_question)
+                planner_confidences.append(plan.confidence)
+                clause_intents.append(plan.intent)
+            else:
+                query = base_query
+                semantic_question = query
+                normalized_queries.append(query)
+                planner_confidences.append(0.0)
+                clause_intents.append(detect_intent(semantic_question))
             candidates = retrieve(query, index, chunks, k=config.TOP_K)
             if reranker is not None:
-                reranked = reranker.rerank(clause, candidates)
+                reranked = reranker.rerank(semantic_question, candidates)
             else:
                 reranked = candidates
                 fallback_used = True
@@ -135,20 +212,32 @@ async def chat(request: ChatRequest):
                     reranked,
                     history=history,
                     enforce_confidence_threshold=reranker is not None,
+                    intent_question=semantic_question,
                 )
             )
-    except (SystemExit, Exception):
+    except SystemExit:
+        raise
+    except Exception:
         unavailable = ChatResponse(
             status="unavailable",
-            answer="",
+            answer=config.UNAVAILABLE_MESSAGE,
             confidence=0.0,
             sources=[],
             fallback_used=fallback_used,
             retrieval_method="reranker" if reranker is not None else "bm25",
+            reason="internal_error",
+            generation_fallback_used=False,
+            reranker_fallback_used=reranker is None,
+            normalized_query=" | ".join(normalized_queries),
+            planner_used=False,
+            planner_confidence=0.0,
         )
         return JSONResponse(status_code=503, content=unavailable.model_dump())
 
     result = clause_results[0] if len(clause_results) == 1 else merge_compound_results(questions, clause_results)
+    result["normalized_query"] = " | ".join(normalized_queries)
+    result["planner_used"] = config.QUERY_PLANNER_ENABLED
+    result["planner_confidence"] = min(planner_confidences, default=0.0)
 
     confidence = 0.0 if fallback_used else float(result["confidence"])
     status = result.get("status", "answered")
@@ -160,15 +249,20 @@ async def chat(request: ChatRequest):
             chunk_id=s["chunk_id"],
             text=s["text"],
             category=s["category"],
+            title=s.get("title", ""),
+            label=s.get("label", "") or s.get("title", "") or s["category"],
+            source=s.get("source", "knowledge base"),
         )
         for s in result.get("sources", [])
     ]
     retrieval_score = float(result.get("confidence", 0.0)) if sources else 0.0
     retrieval_method = "reranker" if reranker is not None else ("bm25" if sources else "none")
 
-    if state is not None:
-        topic = sources[0].category if sources else "unknown"
-        state.record(question, result["answer"], topic)
+    if state is not None and status == "answered":
+        last_intent = clause_intents[-1] if clause_intents else None
+        topic = (last_intent.topic if last_intent else None) or (sources[0].category if sources else "unknown")
+        entities = last_intent.entities if last_intent else ()
+        state.record(question, result["answer"], topic, entities=entities)
 
     return ChatResponse(
         status=status,
@@ -178,6 +272,12 @@ async def chat(request: ChatRequest):
         fallback_used=fallback_used or result.get("fallback_used", False),
         retrieval_score=retrieval_score,
         retrieval_method=retrieval_method,
+        reason=result.get("reason", ""),
+        generation_fallback_used=bool(result.get("fallback_used", False)),
+        reranker_fallback_used=reranker is None,
+        normalized_query=result["normalized_query"],
+        planner_used=result["planner_used"],
+        planner_confidence=result["planner_confidence"],
     )
 
 
