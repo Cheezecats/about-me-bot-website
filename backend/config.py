@@ -35,6 +35,11 @@ TOP_K = 10
 CONFIDENCE_THRESHOLD = 0.40
 MAX_HISTORY_TURNS = 3
 MAX_QUERY_LEN = 500
+MAX_SESSION_ID_LEN = 128
+MAX_REQUESTS_PER_MINUTE = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
+SESSION_TTL_SECONDS = 60 * 60
+MAX_CONVERSATIONS = 1000
+QUERY_PLANNER_ENABLED = os.getenv("QUERY_PLANNER_ENABLED", "true").lower() in {"1", "true", "yes"}
 
 BM25_K1 = 1.5
 BM25_B = 0.75
@@ -58,13 +63,20 @@ REFUSAL_MESSAGE = (
     "I don't have that information about James, but I can help with his public "
     "projects, hobbies, sports, photography, essays, or achievements."
 )
+UNAVAILABLE_MESSAGE = "I couldn't generate an answer right now. Please try again in a moment."
+CLARIFICATION_MESSAGE = (
+    "Which topic should I continue with—James's projects, hobbies, sports, photography, "
+    "essays, travel, or favorites?"
+)
 
 GROUNDING_SYSTEM_PROMPT = (
     "You are an assistant that answers questions about James Sui, a student in Shanghai. "
     "Answer the user's question using ONLY the provided context. "
     "If the context does not contain the answer, respond exactly with the configured refusal message. "
     "Do not guess, do not infer ages from years, do not infer favorites from general usage, "
-    "do not use outside knowledge, and do not add facts that are not in the context."
+    "do not use outside knowledge, and do not add facts that are not in the context. "
+    "For lists, use concise bullets. For comparisons, keep each category separate. "
+    "For ambiguous follow-up questions, answer only when the conversation and context identify one topic; otherwise ask the user to clarify."
 )
 
 TRAIN_LEARNING_RATE = 2e-5

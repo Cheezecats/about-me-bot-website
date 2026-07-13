@@ -7,233 +7,86 @@ import time
 import httpx
 
 from backend import config
-from backend.retrieval.tokenizer import tokenize, tokenize_query
+from backend.generation.compound import merge_compound_results, split_compound_question
+from backend.generation.formatting import (
+    build_context,
+    build_sources,
+    check_grounding,
+    numbers_in,
+)
+from backend.generation.intent import QueryIntent, detect_intent
+from backend.generation.policies import (
+    SMALL_TALK_RESPONSE,
+    apply_pii_filter,
+    is_ambiguous_request,
+    is_non_profile_request,
+    is_product_meta_request,
+    is_sensitive_request,
+    is_small_talk,
+    normalize_refusal,
+    product_meta_answer,
+)
+from backend.generation.query_plan import build_query_plan
+from backend.generation.structured_answers import (
+    STRUCTURED_SUMMARY_TITLES,
+    extractive_answer,
+    format_structured_answer,
+    is_structured_summary,
+)
+
+# These aliases keep the existing test and internal-call surface stable while
+# the implementation lives in focused modules.
+_check_grounding = check_grounding
+_numbers_in = numbers_in
+_build_sources = build_sources
+_extractive_answer = extractive_answer
+_is_structured_summary = is_structured_summary
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 CONTEXT_TOP_N = 3
 OLLAMA_TIMEOUT = 30.0
-MIN_GROUNDING_OVERLAP = 2
-SENSITIVE_REQUEST_PATTERNS = [
-    r"\bpassword\b",
-    r"\b(?:phone|telephone)\s+number\b",
-    r"\bhome\s+address\b",
-    r"\bexact\s+(?:address|location)\b",
-    r"\b(?:bank|account)\s+number\b",
-    r"\bsocial\s+security\b",
-    r"\b(?:qq|wechat)\b",
-    r"\bpassport\s+number\b",
-    r"\bip\s+address\b",
-    r"\bdate\s+of\s+birth\b",
-    r"\bprivate\s+messages?\b",
-    r"\bprivate\s+information\b",
-    r"\bignore\s+(?:your|the)\s+rules?\b",
-    r"\bmedical\s+history\b",
-    r"\bparents?\b",
-    r"\bfamily(?:'s|)\s+income\b",
-    r"\bdorm\s+room\b",
-]
-
-SMALL_TALK_PATTERNS = [
-    r"^(?:hi|hello|hey|hiya|yo|good morning|good afternoon|good evening|hey there|how are you|how's it going)[!.?,\s]*$",
-]
-SMALL_TALK_RESPONSE = (
-    "Hi! Ask me about James's photography, videos, essays, hobbies, sports, or projects."
-)
-AMBIGUOUS_REQUEST_PATTERNS = [r"^(?:family|relatives?)[!.?,\s]*$"]
-NON_PROFILE_REQUEST_PATTERNS = [
-    r"^(?:nice|good|fun|cool|best)\s+games?[!.?,\s]*$",
-    r"\b(?:recommend|recommendation|recommendations|suggest|suggestions)\b",
-    r"\bfavorite\s+(?:programming\s+)?language\b",
-]
-REFUSAL_VARIANTS = [
-    r"provided context does not contain",
-    r"context does not contain",
-    r"not enough information",
-    r"i do not have that information",
-    r"i don't have that information",
-]
-STRUCTURED_SUMMARY_TITLES = {
-    "Achievements & Awards",
-    "Education",
-    "Electric guitar",
-    "Favorite games",
-    "Favorite food",
-    "Favorite music",
-    "Hobbies & Interests",
-    "Photography and videography",
-    "Projects & Skills",
-    "Sports",
-    "Travel",
-    "Writing & Essays",
-    "Favorite season",
-}
-NUMBER_WORDS = {
-    **{word: value for value, word in enumerate(
-        "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split()
-    )},
-    "thirty": 30,
-    "forty": 40,
-    "fifty": 50,
-    "sixty": 60,
-    "seventy": 70,
-    "eighty": 80,
-    "ninety": 90,
-    "hundred": 100,
-}
-_COMPOUND_SPLIT_PATTERN = re.compile(
-    r"\s+(?:and|also|as well as)\s+(?="
-    r"(?:what|where|who|when|why|how|does|is|are|has|have|did|can|could|which|tell|favorite|favourite|his|her|their|my|your)\b)",
-    flags=re.IGNORECASE,
-)
 
 
-def is_sensitive_request(question: str) -> bool:
-    return any(
-        re.search(pattern, question, flags=re.IGNORECASE)
-        for pattern in SENSITIVE_REQUEST_PATTERNS
-    )
-
-
-def is_small_talk(question: str) -> bool:
-    return any(
-        re.search(pattern, question.strip(), flags=re.IGNORECASE)
-        for pattern in SMALL_TALK_PATTERNS
-    )
-
-
-def _matches_any(question: str, patterns: list[str]) -> bool:
-    return any(re.search(pattern, question.strip(), flags=re.IGNORECASE) for pattern in patterns)
-
-
-def is_ambiguous_request(question: str) -> bool:
-    return _matches_any(question, AMBIGUOUS_REQUEST_PATTERNS)
-
-
-def is_non_profile_request(question: str) -> bool:
-    return _matches_any(question, NON_PROFILE_REQUEST_PATTERNS)
-
-
-def is_product_meta_request(question: str) -> bool:
-    return _matches_any(
-        question,
-        [
-            r"\bwhat\s+model\b",
-            r"\bwho\s+are\s+you\b",
-            r"\bwhat\s+can\s+you\s+answer\b",
-            r"\bwhat\s+are\s+you\b",
-        ],
-    )
-
-
-def split_compound_question(question: str) -> list[str]:
-    """Split only when a conjunction introduces a new question clause."""
-
-    parts = [part.strip(" ,;?") for part in _COMPOUND_SPLIT_PATTERN.split(question.strip())]
-    return [part for part in parts if part] or [question.strip()]
-
-
-def _compound_label(question: str, index: int) -> str:
-    lower = question.lower()
-    labels = (
-        (r"\bpassword\b|\bprivate\b|\baddress\b|\bphone\b", "Privacy"),
-        (r"\b(?:favorite|favourite)\s+games?\b|\bgames?\b", "Games"),
-        (r"\bprogramming\s+language|\blanguage\b", "Programming language"),
-        (r"\bprojects?\b|\bskills?\b", "Projects and skills"),
-        (r"\bfood\b|\bramen\b", "Favorite food"),
-        (r"\bcamera|lens(?:es)?\b", "Photography and gear"),
-        (r"\bseason\b", "Favorite season"),
-        (r"\bschool\b|\bstudy\b|\beducation\b", "Education"),
-        (r"\bsports?\b|\bskiing\b|\bhockey\b|\btennis\b|\bfloorball\b", "Sports"),
-        (r"\btravel(?:ed|led|ing)?\b|\bvisited\b", "Travel"),
-        (r"\bessays?|\bpapers?|\bresearch\b", "Writing and essays"),
-    )
-    for pattern, label in labels:
-        if re.search(pattern, lower):
-            return label
-    return f"Part {index}"
-
-
-def merge_compound_results(questions: list[str], results: list[dict]) -> dict:
-    """Merge independently answered clauses into one readable response."""
-
-    sections = []
-    sources: list[dict] = []
-    seen_sources: set[str] = set()
-    statuses = []
-    confidences = []
-    fallback_used = False
-    total_ms = 0.0
-
-    for index, (question, result) in enumerate(zip(questions, results), start=1):
-        result_status = result.get("status", "answered")
-        display_answer = result["answer"]
-        if result_status == "unavailable":
-            display_answer = "I couldn't answer this part right now."
-        sections.append(f"{_compound_label(question, index)}:\n{display_answer}")
-        statuses.append(result_status)
-        confidences.append(float(result.get("confidence", 0.0)))
-        fallback_used = fallback_used or bool(result.get("fallback_used", False))
-        total_ms += float(result.get("pipeline", {}).get("total_ms", 0.0))
-        for source in result.get("sources", []):
-            chunk_id = str(source.get("chunk_id", ""))
-            if chunk_id and chunk_id not in seen_sources:
-                seen_sources.add(chunk_id)
-                sources.append(source)
-
-    if any(status == "answered" for status in statuses):
-        status = "answered"
-    elif any(status == "unavailable" for status in statuses):
-        status = "unavailable"
-    else:
-        status = "refused"
-
+def _result(
+    status: str,
+    answer: str,
+    *,
+    confidence: float = 0.0,
+    sources: list[dict] | None = None,
+    fallback_used: bool = False,
+    total_ms: float = 0.0,
+    generation_ms: float = 0.0,
+    reason: str = "",
+) -> dict:
     return {
         "status": status,
-        "answer": "\n\n".join(sections),
-        "confidence": min(confidences, default=0.0),
-        "sources": sources,
+        "answer": answer,
+        "confidence": confidence,
+        "sources": sources or [],
         "fallback_used": fallback_used,
+        "reason": reason,
         "pipeline": {
             "retrieval_ms": 0,
             "rerank_ms": 0,
-            "generation_ms": 0,
-            "total_ms": round(total_ms, 1),
+            "generation_ms": generation_ms,
+            "total_ms": total_ms,
         },
     }
-
-
-def _product_meta_answer(question: str) -> str:
-    if re.search(r"\bwhat\s+model\b", question, flags=re.IGNORECASE):
-        return f"I'm Ask James, powered locally by {config.LLM_MODEL}. I answer questions about James using this project's knowledge base."
-    return "I'm Ask James, a local chatbot for questions about James's photography, videos, essays, hobbies, sports, and projects."
-
-
-def _numbers_in(text: str) -> set[int]:
-    numbers = {int(value) for value in re.findall(r"\b\d+\b", text)}
-    words = re.findall(r"[a-z]+", text.lower())
-    numbers.update(NUMBER_WORDS[word] for word in words if word in NUMBER_WORDS)
-    return numbers
-
-
-def _build_context(chunks: list[dict]) -> str:
-    parts = []
-    for i, c in enumerate(chunks, 1):
-        parts.append(f"[{i}] {c['text']}")
-    return "\n".join(parts)
 
 
 def _build_messages(
     question: str, context_chunks: list[dict], history: list[dict] | None = None
 ) -> list[dict]:
-    context = _build_context(context_chunks)
+    context = build_context(context_chunks)
     user = (
         f"Context:\n{context}\n\n"
         f"Question: {question}\n\n"
         "Answer the question using only the context above. "
-        "Write a concise answer in one to three sentences. "
+        "Use one to three concise sentences, or a short bullet list when the question asks for multiple items. "
         "Answer only the topic asked about; ignore unrelated context. "
         "Use normal spelling even if the user made a typo. "
         "Never mention the context or say 'the provided context'. "
+        "Do not infer ages from years, favorites from general usage, or relationships between separate facts. "
         "If the context does not directly answer the question, respond exactly: "
         f"\"{config.REFUSAL_MESSAGE}\""
     )
@@ -244,25 +97,12 @@ def _build_messages(
     return messages
 
 
-def _build_sources(chunks: list[dict]) -> list[dict]:
-    sources = []
-    for c in chunks:
-        sources.append(
-            {
-                "chunk_id": str(c.get("chunk_id", "")),
-                "text": c.get("text", ""),
-                "category": c.get("metadata", {}).get("category", "unknown"),
-            }
-        )
-    return sources
-
-
 def _sanitize_context_for_external(chunks: list[dict]) -> list[dict]:
     patterns = [*config.PII_PATTERNS, *config.PRIVATE_KB_PATTERNS]
     return [
-        c
-        for c in chunks
-        if not any(re.search(p, c.get("text", ""), re.IGNORECASE) for p in patterns)
+        chunk
+        for chunk in chunks
+        if not any(re.search(pattern, chunk.get("text", ""), re.IGNORECASE) for pattern in patterns)
     ]
 
 
@@ -274,12 +114,12 @@ def _call_ollama(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
     import ollama
 
     def _invoke() -> str:
-        resp = ollama.chat(
+        response = ollama.chat(
             model=config.LLM_MODEL,
             messages=messages,
             options={"temperature": 0.0, "top_p": 0.9},
         )
-        return resp["message"]["content"].strip()
+        return response["message"]["content"].strip()
 
     try:
         previous = signal.signal(signal.SIGALRM, _timeout_handler)
@@ -295,7 +135,7 @@ def _call_ollama(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
 
 
 def _call_groq(messages: list[dict]) -> str:
-    resp = httpx.post(
+    response = httpx.post(
         GROQ_URL,
         headers={
             "Authorization": f"Bearer {config.GROQ_API_KEY}",
@@ -308,23 +148,8 @@ def _call_groq(messages: list[dict]) -> str:
         },
         timeout=60.0,
     )
-    resp.raise_for_status()
-    data = resp.json()
-    return data["choices"][0]["message"]["content"].strip()
-
-
-def _check_grounding(answer: str, context_chunks: list[dict]) -> bool:
-    if answer == config.REFUSAL_MESSAGE:
-        return True
-    context_text = " ".join(c.get("text", "") for c in context_chunks)
-    if not _numbers_in(answer).issubset(_numbers_in(context_text)):
-        return False
-    answer_words = set(re.findall(r"[a-z]{3,}", answer.lower()))
-    context_words: set[str] = set()
-    for c in context_chunks:
-        context_words.update(re.findall(r"[a-z]{3,}", c.get("text", "").lower()))
-    overlap = answer_words & context_words
-    return len(overlap) >= MIN_GROUNDING_OVERLAP
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def generate_answer(
@@ -334,13 +159,14 @@ def generate_answer(
         return config.REFUSAL_MESSAGE, False
     fallback_text = context_chunks[0].get("text", config.REFUSAL_MESSAGE)
     try:
+        messages = _build_messages(question, context_chunks, history)
         if config.LLM_BACKEND == "ollama":
-            messages = _build_messages(question, context_chunks, history)
             return _call_ollama(messages), False
         if config.LLM_BACKEND == "groq":
             safe_chunks = _sanitize_context_for_external(context_chunks)
-            messages = _build_messages(question, safe_chunks, history)
-            return _call_groq(messages), False
+            if not safe_chunks:
+                return config.REFUSAL_MESSAGE, False
+            return _call_groq(_build_messages(question, safe_chunks, history)), False
         raise SystemExit(f"Unknown LLM_BACKEND: {config.LLM_BACKEND}")
     except SystemExit:
         raise
@@ -348,102 +174,8 @@ def generate_answer(
         return fallback_text, True
 
 
-def apply_pii_filter(text: str) -> str:
-    for pattern in config.PII_PATTERNS:
-        if re.search(pattern, text, re.IGNORECASE):
-            return config.REFUSAL_MESSAGE
-    return text
-
-
-def normalize_refusal(text: str) -> str:
-    if _matches_any(text, REFUSAL_VARIANTS):
-        return config.REFUSAL_MESSAGE
-    return text
-
-
-def _is_structured_summary(chunk: dict) -> bool:
-    return chunk.get("metadata", {}).get("title", "") in STRUCTURED_SUMMARY_TITLES
-
-
-def _extractive_answer(chunk: dict) -> str:
-    title = chunk.get("metadata", {}).get("title", "")
-    text = chunk.get("text", "").strip()
-    for prefix in (f"## {title} ", f"# {title} "):
-        if text.startswith(prefix):
-            text = text[len(prefix) :].strip()
-            break
-    if title == "Favorite games":
-        return f"James's favorite games: {text}"
-    return text
-
-
 def _is_compound_request(question: str) -> bool:
-    return bool(re.search(r"\b(?:and|also|as well as)\b", question, flags=re.IGNORECASE))
-
-
-def _format_structured_answer(question: str, chunks: list[dict]) -> str | None:
-    if not chunks or _is_compound_request(question):
-        return None
-    chunk = chunks[0]
-    title = chunk.get("metadata", {}).get("title", "")
-    if title not in STRUCTURED_SUMMARY_TITLES:
-        return None
-
-    body = _extractive_answer(chunk)
-    if title == "Favorite games":
-        match = re.search(
-            r"Competitive top 3:\s*(.*?)(?:\.\s*|$)Non-competitive top 3:\s*(.*?)(?:\.$|$)",
-            body,
-            flags=re.IGNORECASE,
-        )
-        if match:
-            return (
-                "James's favorite games are:\n\n"
-                f"- Competitive: {match.group(1).strip()}\n"
-                f"- Non-competitive: {match.group(2).strip()}"
-            )
-    if title == "Electric guitar":
-        return "Yes—James plays electric guitar. He started in 2025, is self-taught, and focuses on J-pop and rock."
-    if title == "Photography and videography":
-        if re.search(r"\blens(?:es)?\b", question, flags=re.IGNORECASE):
-            return "James uses a NIKKOR 24-120mm F4 S lens and a NIKKOR 85mm F1.8 lens."
-        if re.search(r"\bcamera(?:s)?\b", question, flags=re.IGNORECASE):
-            return "James's primary camera is a Nikon Z8. He also uses a DJI Action 4 and an iPhone 13 Pro."
-    if title == "Travel":
-        return (
-            "James has travelled to Japan, Greece, Italy, and Xinjiang. "
-            "He also travelled or trained abroad in the United States and Russia through ice hockey."
-        )
-    if title == "Favorite season":
-        return "James's favorite season is winter, especially with snow."
-    if title == "Favorite food":
-        return "James's favorite food is Japanese ramen. He also enjoys ice cream and apple-flavored foods."
-    if title == "Achievements & Awards":
-        return (
-            "James's achievements include:\n\n"
-            "- 2025 Physics Bowl National Silver Award\n"
-            "- National top 5% placement in China Thinks Big\n"
-            "- Research publication in the Curieux Academic Journal\n"
-            "- Participation in the Lumiere Research Program\n"
-            "- Participation in the 丘成桐中学科学奖 (Qiu Competition)"
-        )
-    if title == "Sports" and re.search(
-        r"\b(?:which|what)\b.*\b(?:first|earliest)\b|\bstarted\s+first\b",
-        question,
-        flags=re.IGNORECASE,
-    ):
-        years = {
-            sport: int(year)
-            for sport, year in re.findall(
-                r"\b(skiing|ice hockey|tennis|floorball)\s+in\s+(20\d{2})\b",
-                body,
-                flags=re.IGNORECASE,
-            )
-        }
-        if years:
-            first_sport, first_year = min(years.items(), key=lambda item: item[1])
-            return f"James started {first_sport} first, in {first_year}."
-    return body
+    return len(split_compound_question(question)) > 1
 
 
 def _select_context_chunks(question: str, reranked_chunks: list[dict]) -> list[dict]:
@@ -453,8 +185,6 @@ def _select_context_chunks(question: str, reranked_chunks: list[dict]) -> list[d
         return reranked_chunks[:1]
     top_score = float(reranked_chunks[0].get("score", 0.0))
     second_score = float(reranked_chunks[1].get("score", 0.0))
-    # A clear BM25 winner is usually a focused fact. Sending only that chunk
-    # prevents a small model from blending in nearby but unrelated facts.
     if top_score - second_score >= 1.5:
         return reranked_chunks[:1]
     return reranked_chunks[:CONTEXT_TOP_N]
@@ -465,124 +195,109 @@ def answer_or_refuse(
     reranked_chunks: list[dict],
     history: list[dict] | None = None,
     enforce_confidence_threshold: bool = True,
+    intent_question: str | None = None,
 ) -> dict:
-    t_start = time.perf_counter()
+    started = time.perf_counter()
+    semantic_question = intent_question.strip() if intent_question else question
+    if intent_question is None:
+        # Keep direct callers (CLI/tests) compatible with the API path by
+        # applying the same deterministic normalization when no plan was
+        # supplied by the request orchestrator.
+        semantic_question = build_query_plan(question).normalized_question
+    intent: QueryIntent = detect_intent(question)
+    if intent_question or semantic_question != question:
+        resolved_intent = detect_intent(semantic_question)
+        if resolved_intent.kind != "unknown":
+            # The planner's normalized query is the authoritative semantic
+            # interpretation, while policy checks below still inspect the raw
+            # user message for privacy and unsupported requests.
+            intent = resolved_intent
 
-    if is_small_talk(question):
-        return {
-            "status": "answered",
-            "answer": SMALL_TALK_RESPONSE,
-            "confidence": 1.0,
-            "sources": [],
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
+    if intent.kind == "small_talk" or is_small_talk(question):
+        return _result("answered", SMALL_TALK_RESPONSE, confidence=1.0, reason="small_talk")
 
-    if is_product_meta_request(question):
-        return {
-            "status": "answered",
-            "answer": _product_meta_answer(question),
-            "confidence": 1.0,
-            "sources": [],
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
+    if intent.kind == "product_meta" or is_product_meta_request(question):
+        return _result("answered", product_meta_answer(question), confidence=1.0, reason="product_meta")
 
-    if is_ambiguous_request(question) or is_non_profile_request(question):
-        return {
-            "status": "refused",
-            "answer": config.REFUSAL_MESSAGE,
-            "confidence": 0.0,
-            "sources": [],
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
+    if intent.kind == "unknown" and intent.followup:
+        return _result("clarification", config.CLARIFICATION_MESSAGE, reason="ambiguous_followup")
 
-    if not reranked_chunks:
-        return {
-            "status": "refused",
-            "answer": config.REFUSAL_MESSAGE,
-            "confidence": 0.0,
-            "sources": [],
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
-    if is_sensitive_request(question):
-        return {
-            "status": "refused",
-            "answer": config.REFUSAL_MESSAGE,
-            "confidence": 0.0,
-            "sources": [],
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
+    if intent.kind in {"privacy", "ambiguous", "unsupported"} or is_ambiguous_request(question) or is_non_profile_request(question):
+        reason = {
+            "privacy": "privacy",
+            "unsupported": "unsupported",
+            "ambiguous": "ambiguous_request",
+        }.get(intent.kind, "unsupported")
+        return _result("refused", config.REFUSAL_MESSAGE, reason=reason)
+
+    if not reranked_chunks or is_sensitive_request(question):
+        return _result(
+            "refused",
+            config.REFUSAL_MESSAGE,
+            reason="privacy" if is_sensitive_request(question) else "no_retrieval",
+        )
+
     top_score = float(reranked_chunks[0].get("score", 0.0))
-    top_n = _select_context_chunks(question, reranked_chunks)
-    sources = _build_sources(top_n)
+    top_chunks = _select_context_chunks(question, reranked_chunks)
+    sources = _build_sources(top_chunks)
     if enforce_confidence_threshold and top_score < config.CONFIDENCE_THRESHOLD:
-        return {
-            "status": "refused",
-            "answer": config.REFUSAL_MESSAGE,
-            "confidence": top_score,
-            "sources": sources,
-            "fallback_used": False,
-            "pipeline": {"retrieval_ms": 0, "rerank_ms": 0, "generation_ms": 0, "total_ms": 0},
-        }
+        return _result(
+            "refused",
+            config.REFUSAL_MESSAGE,
+            confidence=top_score,
+            sources=sources,
+            reason="low_retrieval_confidence",
+        )
 
-    structured_answer = _format_structured_answer(question, top_n)
-    if structured_answer is not None:
-        total_ms = round((time.perf_counter() - t_start) * 1000, 1)
-        return {
-            "status": "answered",
-            "answer": structured_answer,
-            "confidence": top_score,
-            "sources": sources,
-            "fallback_used": False,
-            "pipeline": {
-                "retrieval_ms": 0,
-                "rerank_ms": 0,
-                "generation_ms": 0,
-                "total_ms": total_ms,
-            },
-        }
+    structured = format_structured_answer(semantic_question, top_chunks, intent)
+    if structured is not None and not _is_compound_request(question):
+        elapsed = round((time.perf_counter() - started) * 1000, 1)
+        return _result(
+            "answered",
+            structured,
+            confidence=top_score,
+            sources=sources,
+            total_ms=elapsed,
+            reason="structured_fact",
+        )
 
-    t_gen_start = time.perf_counter()
-    answer_text, fallback_used = generate_answer(question, top_n, history)
-    generation_ms = round((time.perf_counter() - t_gen_start) * 1000, 1)
-
+    generation_started = time.perf_counter()
+    answer_text, fallback_used = generate_answer(question, top_chunks, history)
+    generation_ms = round((time.perf_counter() - generation_started) * 1000, 1)
     filtered = normalize_refusal(apply_pii_filter(answer_text))
 
-    if top_n and _is_structured_summary(top_n[0]) and (
+    if top_chunks and _is_structured_summary(top_chunks[0]) and (
         filtered == config.REFUSAL_MESSAGE
         or re.search(r"\bfull\s+name\s+project\b", filtered, flags=re.IGNORECASE)
-        or not _check_grounding(filtered, top_n)
+        or not _check_grounding(filtered, top_chunks)
     ):
-        # A structured KB summary is safer than a refusal or an invented
-        # interpretation when the small model is uncertain.
-        filtered = _extractive_answer(top_n[0])
+        structured_fallback = format_structured_answer(semantic_question, top_chunks, intent)
+        if structured_fallback is not None:
+            filtered = structured_fallback
 
     if filtered == config.REFUSAL_MESSAGE:
         status = "refused"
+        reason = "model_refusal"
     elif fallback_used:
         status = "unavailable"
-    elif not _check_grounding(filtered, top_n):
+        filtered = config.UNAVAILABLE_MESSAGE
+        reason = "llm_unavailable"
+    elif not _check_grounding(filtered, top_chunks):
         status = "refused"
         filtered = config.REFUSAL_MESSAGE
+        reason = "grounding_failed"
     else:
         status = "answered"
+        reason = "generated"
 
-    total_ms = round((time.perf_counter() - t_start) * 1000, 1)
-
-    return {
-        "status": status,
-        "answer": filtered,
-        "confidence": top_score,
-        "sources": sources,
-        "fallback_used": fallback_used,
-        "pipeline": {
-            "retrieval_ms": 0,
-            "rerank_ms": 0,
-            "generation_ms": generation_ms,
-            "total_ms": total_ms,
-        },
-    }
+    elapsed = round((time.perf_counter() - started) * 1000, 1)
+    return _result(
+        status,
+        filtered,
+        confidence=top_score,
+        sources=sources,
+        fallback_used=fallback_used,
+        total_ms=elapsed,
+        generation_ms=generation_ms,
+        reason=reason,
+    )

@@ -116,9 +116,10 @@ def retrieve(
 ) -> list[dict]:
     by_id = {c["chunk_id"]: c for c in chunks}
     results = []
-    query_terms = set(tokenize(query))
+    query_terms = set(tokenize_query(query))
     project_query = bool(query_terms & {"project", "projects", "built", "created", "developed"})
     achievement_query = bool(query_terms & {"award", "awards", "achievement", "achievements", "won"})
+    travel_query = bool(query_terms & {"travel", "traveled", "travelled", "visited", "visit", "country", "countries", "training", "train", "abroad"})
     specific_achievement_terms = query_terms & {
         "physics", "bowl", "curieux", "lumiere", "qiu", "china", "thinks", "big"
     }
@@ -147,6 +148,10 @@ def retrieve(
             and c.get("metadata", {}).get("title") == "Achievements & Awards"
             else 0.0
         )
+        if travel_query and c.get("metadata", {}).get("title") == "Travel":
+            summary_bonus += 12.0
+        if project_query and c.get("metadata", {}).get("title") in {"Projects & Skills", "Programming languages"}:
+            summary_bonus += 8.0
         results.append({**c, "score": round(score + heading_bonus + summary_bonus, 4)})
     results.sort(key=lambda c: c["score"], reverse=True)
     return results[:k]

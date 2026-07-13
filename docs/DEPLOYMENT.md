@@ -8,11 +8,24 @@ Tunnel that exposes the local Mac mini to the public internet.
 
 ## 1. Architecture Overview
 
-The chatbot uses a **3-stage retrieval-augmented generation (RAG) pipeline**:
+The chatbot uses a policy-first retrieval-augmented generation pipeline. A
+deterministic query planner first normalizes common typos and informal phrasing,
+then curated fact questions can be answered deterministically; open-ended
+questions continue through local Ollama generation. The reranker is currently
+disabled by design.
 
 ```
 User Question
      │
+     ▼
+┌─────────────────────────────────────────────────────────┐
+│  Stage 0 — Query Planning                               │
+│  • Corrects common typos and informal wording            │
+│  • Identifies topic/entity targets                       │
+│  • Rewrites only when a deterministic rule matches       │
+│  • QUERY_PLANNER_ENABLED=false restores the legacy path  │
+└─────────────────────────────────────────────────────────┘
+     │ normalized retrieval query
      ▼
 ┌─────────────────────────────────────────────────────────┐
 │  Stage 1 — BM25 Retrieval (from scratch, pure Python)   │
@@ -24,23 +37,22 @@ User Question
      │  top-10 candidates
      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Stage 2 — DistilBERT Reranker (fine-tuned)             │
-│  • Base model: distilbert-base-uncased (2-class head)   │
-│  • Scores each (question, chunk) pair via softmax       │
-│  • Re-orders the 10 BM25 candidates by relevance        │
-│  • Falls back to BM25 order if the model is absent       │
+│  Policy + structured answer layer                      │
+│  • Privacy and unsupported-request checks               │
+│  • Entity-specific and comparison answers               │
+│  • Follow-up and compound-question handling             │
 └─────────────────────────────────────────────────────────┘
-     │  top-3 re-ranked chunks (above 0.40 confidence)
+     │  focused context when generation is needed
      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Stage 3 — LLM Generation (Qwen 2.5 3B via Ollama)      │
+│  LLM Generation (Qwen 2.5 3B via Ollama)                │
 │  • Grounded system prompt restricts answers to context  │
 │  • Generates a natural-language answer or refuses        │
 │  • PII filter post-processes the output                 │
 └─────────────────────────────────────────────────────────┘
      │
      ▼
-  JSON response: { answer, confidence, sources[], fallback_used }
+  JSON response: { answer, status, reason, sources[], retrieval_method }
 ```
 
 ### Key components
@@ -51,6 +63,7 @@ User Question
 | Tokenizer | [backend/retrieval/tokenizer.py](../backend/retrieval/tokenizer.py) | Normalisation, alias mapping, stopword removal |
 | Reranker | [backend/reranker/inference.py](../backend/reranker/inference.py) | Configurable zero-shot or fine-tuned cross-encoder inference |
 | Generation | [backend/generation/answer.py](../backend/generation/answer.py) | Ollama/Groq call, grounding, PII filter |
+| Intent and facts | [backend/generation/intent.py](../backend/generation/intent.py), [backend/generation/structured_answers.py](../backend/generation/structured_answers.py) | Entity-aware and deterministic answers |
 | API | [backend/api.py](../backend/api.py) | FastAPI app, `/api/chat` and `/api/health` |
 | Config | [backend/config.py](../backend/config.py) | Environment variables and constants |
 
@@ -58,7 +71,7 @@ User Question
 
 ## 2. Mac Mini Deployment Setup
 
-The backend runs on a **Mac mini (M4, 8 GB RAM)**. The BM25 index and reranker
+The backend runs on a **Mac mini (M4, 16 GB RAM)**. The BM25 index and reranker
 inference run on-device; the LLM runs locally via Ollama.
 
 ### 2.1 Prerequisites
@@ -83,9 +96,10 @@ ollama pull qwen2.5:3b
 ollama run qwen2.5:3b "Say hello in one sentence."
 ```
 
-> **Note:** On first inference Ollama loads the model into memory. On an 8 GB
-> Mac mini the model occupies roughly 2–3 GB, leaving room for the reranker and
-> OS. If you encounter memory pressure, ensure no other heavy apps are running.
+> **Note:** On first inference Ollama loads the model into memory. On this 16 GB
+> Mac mini, the 3B model occupies roughly 2–3 GB, leaving substantially more
+> headroom for the OS and a larger local model if we validate one later. If you
+> encounter memory pressure, ensure no other heavy apps are running.
 
 ### 2.3 Install Python dependencies
 
@@ -125,12 +139,18 @@ LLM_MODEL=qwen2.5:3b
 # Include your GitHub Pages URL and the tunnel URL (once created).
 CORS_ORIGINS=https://cheezecats.github.io,http://localhost:5173,https://ask-james.example.com
 
-# Optional: restrict which Host headers the API accepts (default: "*")
-# ALLOWED_HOSTS=ask-james.example.com,localhost
+# Restrict which Host headers the API accepts. Keep the local-only default
+# until a reverse proxy or tunnel is deliberately configured.
+ALLOWED_HOSTS=localhost,127.0.0.1,[::1]
+HOST=127.0.0.1
 
 # Leave disabled unless threshold calibration reports recommended_for_deployment: true.
 RERANKER_ENABLED=false
 RERANKER_BACKEND=zeroshot_cross_encoder
+
+# Deterministic normalization for informal and misspelled questions.
+# Set false temporarily to compare with the legacy request path.
+QUERY_PLANNER_ENABLED=true
 ```
 
 | Variable | Default | Description |
@@ -138,20 +158,23 @@ RERANKER_BACKEND=zeroshot_cross_encoder
 | `LLM_BACKEND` | `ollama` | Which generation backend to use (`ollama` or `groq`) |
 | `LLM_MODEL` | `qwen2.5:3b` | Ollama model tag |
 | `CORS_ORIGINS` | `https://cheezecats.github.io,http://localhost:5173` | Allowed origins for browser requests |
-| `ALLOWED_HOSTS` | `*` | TrustedHostMiddleware allow-list |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1],testserver` | TrustedHostMiddleware allow-list |
+| `HOST` | `127.0.0.1` | Bind address; keep local-only during development |
+| `MAX_REQUESTS_PER_MINUTE` | `60` | Per-client in-memory API rate limit |
 | `GROQ_API_KEY` | *(empty)* | Only needed if `LLM_BACKEND=groq` |
 | `GROQ_MODEL` | `llama-3.1-8b-instant` | Only needed if `LLM_BACKEND=groq` |
 | `RERANKER_ENABLED` | `false` | Enables only a validated reranker |
 | `RERANKER_BACKEND` | `zeroshot_cross_encoder` | `zeroshot_cross_encoder` or `finetuned_distilbert` |
+| `QUERY_PLANNER_ENABLED` | `true` | Enables deterministic query normalization; set `false` for legacy rollback/comparison |
 
 ### 2.5 Run the API
 
 ```bash
-# Option A — using the project entry point (runs on 0.0.0.0:8000)
+# Option A — using the project entry point (runs on localhost:8000)
 python main.py
 
-# Option B — using uvicorn directly (equivalent)
-uvicorn backend.api:app --host 0.0.0.0 --port 8000
+# Option B — using uvicorn directly
+uvicorn backend.api:app --host 127.0.0.1 --port 8000
 ```
 
 On startup the API will:
@@ -159,15 +182,15 @@ On startup the API will:
 1. Load (or build) the BM25 index from `data/bm25_index.json`.
 2. Load the knowledge-base chunks from `data/chunks.json`.
 3. Load the configured reranker only when `RERANKER_ENABLED=true`.
-   - Otherwise, the API starts in **BM25-only fallback mode** (the
-     `fallback_used` field in chat responses will be `true`).
+   - Otherwise, the API starts in **BM25-only mode**. Responses expose
+     `retrieval_method: "bm25"` and `reranker_fallback_used: true`.
 4. Initialise an in-memory conversation store.
 
 You should see output similar to:
 
 ```
 [bm25] indexed 120 chunks, avgdl=8.42, vocab=540
-INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Uvicorn running on http://127.0.0.1:8000
 ```
 
 ---

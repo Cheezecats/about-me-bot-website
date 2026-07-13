@@ -1,0 +1,41 @@
+{"question":"What is James's favorite game?","mode":"structured","title":"Favorite games","terms":["Apex Legends","CS:GO/CS2","Valorant"]}
+{"question":"What games does James enjoy?","mode":"structured","title":"Favorite games","terms":["Cyberpunk 2077","GTA 5"]}
+{"question":"Compare competitive and non-competitive games","mode":"structured","title":"Favorite games","terms":["Competitive:","Non-competitive:"]}
+{"question":"What are James's hobbies?","mode":"structured","title":"Hobbies & Interests","terms":["photography and videography","electric guitar"]}
+{"question":"Does James play an instrument?","mode":"structured","title":"Electric guitar","terms":["electric guitar","2025"]}
+{"question":"What camera does James use?","mode":"structured","title":"Photography and videography","terms":["Nikon Z8","DJI Action 4"]}
+{"question":"What about his lenses?","mode":"structured","title":"Photography and videography","terms":["NIKKOR 24-120mm F4 S","NIKKOR 85mm F1.8"]}
+{"question":"What is James's favorite music?","mode":"structured","title":"Favorite music","terms":["君の神様になりたい","DECO*27"]}
+{"question":"What is James's favorite food?","mode":"structured","title":"Favorite food","terms":["Japanese ramen","ice cream"]}
+{"question":"What is James's favorite season?","mode":"structured","title":"Favorite season","terms":["winter","snow"]}
+{"question":"What sports does James play?","mode":"structured","title":"Sports","terms":["Skiing","Ice Hockey","Floorball"]}
+{"question":"Which sports did James start before 2020?","mode":"structured","title":"Sports","terms":["Skiing (2013)","Ice Hockey (2015)","Tennis (2018)"]}
+{"question":"Which sport did James start first?","mode":"structured","title":"Sports","terms":["skiing first","2013"]}
+{"question":"Which countries did James visit?","mode":"structured","title":"Travel","terms":["Japan","Greece","Italy","Xinjiang"]}
+{"question":"Where did James train for hockey?","mode":"structured","title":"Travel","terms":["United States","Russia"]}
+{"question":"What projects has James built?","mode":"structured","title":"Projects & Skills","terms":["personal website","FFT guitar tuner","Flappy Bird"]}
+{"question":"What projects involve AI?","mode":"structured","title":"Projects & Skills","terms":["Flutter medical recovery platform","LLM hallucination evaluator","Histology classifier benchmark"]}
+{"question":"What programming languages does James use?","mode":"structured","title":"Programming languages","terms":["Python","TypeScript","Solidity"]}
+{"question":"What essays has James written?","mode":"structured","title":"Writing & Essays","terms":["LLM hallucination research paper","Extended Essay on Uniswap V3"]}
+{"question":"What achievements does James have?","mode":"structured","title":"Achievements & Awards","terms":["Physics Bowl National Silver Award","丘成桐中学科学奖"]}
+{"question":"What awards has James won?","mode":"structured","title":"Achievements & Awards","terms":["Physics Bowl National Silver Award"]}
+{"question":"What school does James attend?","mode":"structured","title":"Education","terms":["YK Pao School","IBDP"]}
+{"question":"What is James's highest rank in Apex Legends?","mode":"structured","title":"apex_rank","terms":["Diamond 2","Season 22"]}
+{"question":"What is James's Math IA about?","mode":"structured","title":"Math IA","terms":["Markov chain","Apex Legends"]}
+{"question":"What did James film in Greece?","mode":"structured","title":"Greece","terms":["8K","Athens"]}
+{"question":"What position does James play in ice hockey?","mode":"structured","title":"Ice Hockey","terms":["defender"]}
+{"question":"What is James's Extended Essay about?","mode":"structured","title":"Writing & Essays","terms":["Uniswap V3","slippage"]}
+{"question":"favoriate game","mode":"structured","title":"Favorite games","terms":["Apex Legends"]}
+{"question":"photographt","mode":"structured","title":"Photography and videography","terms":["Nikon Z8"]}
+{"question":"acheivements james","mode":"structured","title":"Achievements & Awards","terms":["Physics Bowl National Silver Award","丘成桐中学科学奖"]}
+{"question":"musci james like","mode":"structured","title":"Favorite music","terms":["君の神様になりたい"]}
+{"question":"What is his Physics IA about?","mode":"structured","title":"IB Physics IA","terms":["FFT guitar tuner","string gauge"]}
+{"question":"James最喜欢什么游戏？","mode":"structured","title":"Favorite games","terms":["Apex Legends","Cyberpunk 2077"]}
+{"question":"James喜欢什么音乐？","mode":"structured","title":"Favorite music","terms":["君の神様になりたい","こはならむ"]}
+{"question":"他会弹什么乐器?","mode":"structured","title":"Electric guitar","terms":["electric guitar","2025"]}
+{"question":"hey there","mode":"policy","status":"answered","terms":["Ask me about James"]}
+{"question":"What model are you?","mode":"policy","status":"answered","terms":["qwen2.5:3b"]}
+{"question":"What is James's password?","mode":"policy","status":"refused","terms":["public projects"]}
+{"question":"What is James's favorite programming language?","mode":"policy","status":"refused","terms":["public projects"]}
+{"question":"What is James's favorite restaurant?","mode":"policy","status":"refused","terms":["public projects"]}
+{"question":"What is James's least favorite game?","mode":"policy","status":"refused","terms":["public projects"]}
