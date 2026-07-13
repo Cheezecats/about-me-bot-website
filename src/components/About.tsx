@@ -4,7 +4,7 @@ import { bio } from "../data/content";
 
 export default function About() {
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative flex min-h-[520px] items-center overflow-hidden">
       {/* Ambient generative band */}
       <div className="absolute inset-x-0 top-0 h-full opacity-90">
         <GenerativeCanvas height={520} seed={11} particleCount={320} />
@@ -17,7 +17,7 @@ export default function About() {
         }}
       />
 
-      <div className="relative mx-auto max-w-[920px] px-6 py-28 text-center sm:py-36">
+      <div className="relative mx-auto flex w-full max-w-[920px] -translate-y-4 flex-col items-center justify-center px-6 py-24 text-center sm:-translate-y-5 sm:py-28">
         <Reveal>
           <span className="eyebrow">About</span>
         </Reveal>

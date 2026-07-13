@@ -16,7 +16,7 @@ export default function Hero() {
         <img
           src={heroImage}
           alt={heroCaption}
-          className="h-full w-full object-cover"
+          className="h-full w-full origin-center scale-[1.06] object-cover"
           fetchPriority="high"
         />
       </motion.div>
