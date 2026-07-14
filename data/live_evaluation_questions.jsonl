@@ -12,3 +12,11 @@
 {"question":"what did james write","expected_status":"answered","terms":["LLM hallucination","Uniswap V3"]}
 {"question":"what is james's camera gear","expected_status":"answered","terms":["Nikon Z8","DJI Action 4"]}
 {"question":"what's james's private address","expected_status":"refused","terms":["public projects"]}
+{"question":"What is this chat's architecture?","expected_status":"answered","terms":["RAG","FastAPI","BM25"]}
+{"question":"What is the AI model?","expected_status":"answered","terms":["qwen2.5:3b","Ollama"]}
+{"question":"Where does this chat's knowledge come from?","expected_status":"answered","terms":["profile_facts.json","chunks.json"]}
+{"question":"How does source attribution work?","expected_status":"answered","terms":["knowledge-base chunks","live web citations"]}
+{"question":"Does this chat remember our conversation?","expected_status":"answered","terms":["in-memory session","session_id"]}
+{"question":"Is this chatbot fine-tuned?","expected_status":"answered","terms":["not fine-tuned","reranker"]}
+{"question":"What are this chatbot's limitations?","expected_status":"answered","terms":["general web search","public profile"]}
+{"question":"How is this website deployed?","expected_status":"answered","terms":["GitHub Pages","Cloudflare Quick Tunnel"]}
