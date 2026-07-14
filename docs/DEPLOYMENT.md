@@ -139,9 +139,9 @@ LLM_MODEL=qwen2.5:3b
 # Include your GitHub Pages URL and the tunnel URL (once created).
 CORS_ORIGINS=https://cheezecats.github.io,http://localhost:5173,https://ask-james.example.com
 
-# Restrict which Host headers the API accepts. Keep the local-only default
-# until a reverse proxy or tunnel is deliberately configured.
-ALLOWED_HOSTS=localhost,127.0.0.1,[::1]
+# Restrict which Host headers the API accepts. Add the hostname used by the
+# Cloudflare Tunnel; otherwise the public API will return HTTP 400.
+ALLOWED_HOSTS=localhost,127.0.0.1,[::1],ask-james.example.com
 HOST=127.0.0.1
 
 # Leave disabled unless threshold calibration reports recommended_for_deployment: true.
@@ -232,7 +232,7 @@ Create `~/.cloudflared/config.yml`:
 
 ```yaml
 tunnel: <TUNNEL_UUID>
-credentials-file: /Users/james/.cloudflared/<TUNNEL_UUID>.json
+credentials-file: /Users/<your-mac-username>/.cloudflared/<TUNNEL_UUID>.json
 
 ingress:
   - hostname: ask-james.example.com
@@ -324,8 +324,15 @@ To enable it:
 1. Go to **Settings → Pages** in the GitHub repository.
 2. Set **Source** to **GitHub Actions**.
 3. Add `VITE_CHAT_API_URL` as a repository secret (Settings → Secrets and
-   variables → Actions) so the workflow can inject it at build time.
+   variables → Actions), for example
+   `https://ask-james.example.com/api/chat`. The workflow passes this value
+   into the build and fails early if it is missing, preventing a deployed page
+   with a silently broken chat button.
 4. Push to `main` — the site deploys to `https://cheezecats.github.io/<repo>/`.
+
+The Vite configuration automatically uses the repository path when GitHub
+Actions builds this project as a Pages project site. For a custom domain, add
+the repository variable `VITE_BASE_PATH=/` to override that behavior.
 
 ### 4.4 Alternative: serve via FastAPI
 
@@ -342,7 +349,7 @@ exists (see [api.py:204-224](../backend/api.py#L204-L224)). In this mode, set
 
 The DistilBERT reranker is trained on a separate **PC with an NVIDIA RTX 4080
 GPU** (see [backend/training/train_reranker.py](../backend/training/train_reranker.py))
-because the 8 GB Mac mini lacks the VRAM for comfortable training. At inference
+because the Mac mini lacks dedicated NVIDIA VRAM for comfortable training. At inference
 time the model runs on the Mac mini's MPS (Metal) backend or CPU.
 
 ### 5.1 Train the model (on the 4080 PC)
@@ -511,6 +518,16 @@ restart the API. For example, if the frontend is at
 ```dotenv
 CORS_ORIGINS=https://cheezecats.github.io,https://ask-james.example.com,http://localhost:5173
 ```
+
+Also add the public API hostname to `ALLOWED_HOSTS`:
+
+```dotenv
+ALLOWED_HOSTS=localhost,127.0.0.1,[::1],ask-james.example.com
+```
+
+`CORS_ORIGINS` controls which browser origins may call the API, while
+`ALLOWED_HOSTS` controls which hostname the API accepts in the request. Both
+settings are required for a public tunnel deployment.
 
 ### Cloudflare Tunnel returns 502 Bad Gateway
 

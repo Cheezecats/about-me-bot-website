@@ -26,9 +26,21 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: Check chat API configuration
+        env:
+          VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
+        run: |
+          if [ -z "$VITE_CHAT_API_URL" ]; then
+            echo "Missing required repository secret: VITE_CHAT_API_URL"
+            echo "Set it to the public backend URL ending in /api/chat before deploying."
+            exit 1
+          fi
 
       - name: Build
+        env:
+          VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
         run: npm run build
 
       - name: Upload Pages artifact
