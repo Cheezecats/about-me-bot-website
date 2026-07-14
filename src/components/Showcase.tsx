@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import Reveal from "./Reveal";
+import { assetPath } from "../data/content";
 
 type Card = {
   to: string;
@@ -16,7 +17,7 @@ const cards: Card[] = [
     to: "/photography",
     title: "Photography",
     subtitle: "Light, frame, and silence.",
-    image: "/assets/thumbnails/2-4jpn%20(17%20-%2037).jpg",
+    image: assetPath("thumbnails", "2-4jpn (17 - 37).jpg"),
     meta: "34 frames · Nikon Z8",
     className: "md:col-span-2 md:row-span-2",
   },
@@ -32,7 +33,7 @@ const cards: Card[] = [
     to: "/hobbies",
     title: "Hobbies",
     subtitle: "Sport, play, craft.",
-    image: "/assets/thumbnails/_T6A6134.jpg",
+    image: assetPath("thumbnails", "_T6A6134.jpg"),
     meta: "Ice hockey · Tennis · More",
     className: "",
   },
@@ -40,7 +41,7 @@ const cards: Card[] = [
     to: "/essays",
     title: "Essays",
     subtitle: "Research & writing.",
-    image: "/assets/pdf/table_his2.png",
+    image: assetPath("pdf", "table_his2.png"),
     meta: "2 papers · ML & medical imaging",
     className: "md:col-span-2",
   },
