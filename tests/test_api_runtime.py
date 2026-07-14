@@ -25,7 +25,7 @@ def test_conversation_store_is_bounded_and_returns_state():
 
 
 def test_api_uses_planner_and_exposes_rollback_diagnostics():
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         health = client.get("/api/health")
         assert health.status_code == 200
         assert health.json()["query_planner_enabled"] is True
@@ -41,7 +41,7 @@ def test_api_uses_planner_and_exposes_rollback_diagnostics():
 
 def test_api_can_disable_planner_without_changing_legacy_answer_path(monkeypatch):
     monkeypatch.setattr(config, "QUERY_PLANNER_ENABLED", False)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         health = client.get("/api/health")
         assert health.json()["query_planner_enabled"] is False
 
@@ -54,7 +54,7 @@ def test_api_can_disable_planner_without_changing_legacy_answer_path(monkeypatch
 
 
 def test_api_preserves_entities_across_second_hop_followups():
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         session_id = "followup-test"
         first = client.post(
             "/api/chat",

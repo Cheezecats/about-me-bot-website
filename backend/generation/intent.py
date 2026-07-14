@@ -20,16 +20,16 @@ class QueryIntent:
 
 
 _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|videograph|video)\b", "photography"),
-    (r"\b(?:favorite|favourite)\s+(?:game|games)\b|\b(?:game|games|gaming)\b", "games"),
+    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographs?|photo|photos?|picture|pictures?|videograph|video|gear)\b", "photography"),
+    (r"\b(?:favorite|favourite)\s+(?:game|games)\b|\b(?:game|games|gaming|apex|valorant|csgo|cyberpunk)\b", "games"),
     (r"\b(?:food|eat|eating|ramen|ice cream)\b", "food"),
     (r"\b(?:season|winter|summer|spring|autumn|fall)\b", "season"),
-    (r"\b(?:music|song|songs|track|tracks|artist|band|bands|listen)\b", "music"),
-    (r"\b(?:hobbies|hobby|interests?|instrument|guitar|drawing|pc building)\b", "hobbies"),
+    (r"\b(?:music|song|songs|track|tracks|artist|band|bands|listen|singer|playlist)\b", "music"),
+    (r"\b(?:hobbies|hobby|interests?|instrument|guitar|drawing|pc building|pastime|free time|fun)\b", "hobbies"),
     (r"\b(?:sports?|skiing|hockey|tennis|floorball|soccer)\b", "sports"),
-    (r"\b(?:travel(?:ed|led|ing)?|visited|countries|country|trip)\b", "travel"),
-    (r"\b(?:essay|essays|paper|papers|research|writing|written|ia|internal assessment)\b", "writing"),
-    (r"\b(?:award|awards|achievement|achievements|won|victory)\b", "achievements"),
+    (r"\b(?:travel(?:ed|led|ing)?|visited|visit|been|went|countries|country|trip|abroad)\b", "travel"),
+    (r"\b(?:essay|essays|paper|papers|research|writing|written|wrote|write|ia|internal assessment)\b", "writing"),
+    (r"\b(?:award|awards|achievement|achievements|accomplishment|accomplishments|won|victory|medal)\b", "achievements"),
     (r"\b(?:school|study|studies|education|curriculum|grade|ibdp|igcse|subjects?)\b", "education"),
     (r"\b(?:project|projects|built|created|developed|skills?|programming|code|coding|language|python|typescript|solidity)\b", "projects"),
     (r"\b(?:anime|movie|film|book|series)\b", "favorites"),
@@ -100,6 +100,8 @@ def detect_intent(question: str) -> QueryIntent:
             "band" if re.search(r"\bbands?\b", lower) else None,
             "artist" if re.search(r"\bartists?\b", lower) else None,
             "dislikes" if re.search(r"\b(?:dislike|dislikes|disliked|least favorite|hate|hates)\b", lower) else None,
+            "gaming_reason" if re.search(r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower) and re.search(r"\b(?:game|games|gaming|apex|valorant|csgo)\b", lower) else None,
+            "coding_origin" if re.search(r"\b(?:learn|learned|self-taught|taught|started)\b", lower) and re.search(r"\b(?:code|coding|programming|python|software)\b", lower) else None,
             "apex_rank" if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\brank\b", lower) else None,
         )
         if entity

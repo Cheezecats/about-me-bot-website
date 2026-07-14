@@ -136,8 +136,38 @@ def test_query_planner_recovers_informal_typos_and_targets():
     ]
     for question, normalized_term, expected in cases:
         plan = build_query_plan(question)
-        assert normalized_term.lower() in plan.normalized_question.lower(), question
+        assert normalized_term.lower() in (
+            f"{plan.normalized_question} {plan.retrieval_query}"
+        ).lower(), question
         assert plan.confidence >= 0.9, question
+        retrieved = retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K)
+        result = answer_or_refuse(
+            question,
+            retrieved,
+            enforce_confidence_threshold=False,
+            intent_question=plan.normalized_question,
+        )
+        assert result["status"] == "answered", question
+        assert expected.lower() in result["answer"].lower(), question
+
+
+def test_query_planner_handles_new_informal_phrasing_without_guessing():
+    chunks, index = _runtime()
+    cases = [
+        ("what does james do for fun", "hobbies", "electric guitar"),
+        ("what games does james play", "favorite games", "Apex Legends"),
+        ("how good is james at apex", "highest rank", "Diamond 2"),
+        ("james hobies", "hobbies", "photography and videography"),
+        ("what did james write", "essays", "Uniswap V3"),
+        ("what is james's camera gear", "camera", "Nikon Z8"),
+        ("How did James learn to code?", "programming", "middle school"),
+        ("Why does James enjoy gaming?", "gaming", "friends"),
+    ]
+    for question, normalized_term, expected in cases:
+        plan = build_query_plan(question)
+        assert normalized_term.lower() in (
+            f"{plan.normalized_question} {plan.retrieval_query}"
+        ).lower(), question
         retrieved = retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K)
         result = answer_or_refuse(
             question,

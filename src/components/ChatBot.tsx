@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 type ChatStatus = "idle" | "loading" | "answered" | "refused" | "clarification" | "unavailable" | "error";
@@ -26,6 +26,57 @@ interface Message {
   content: string;
   status?: ChatStatus;
   sources?: ChatSource[];
+}
+
+function renderAssistantContent(content: string) {
+  const lines = content.split("\n");
+  const elements: ReactNode[] = [];
+  let bulletItems: string[] = [];
+  let numberedItems: string[] = [];
+
+  const flushLists = () => {
+    if (bulletItems.length > 0) {
+      elements.push(
+        <ul key={`bullets-${elements.length}`} className="my-1 list-disc space-y-1 pl-5">
+          {bulletItems.map((item, index) => <li key={index}>{item}</li>)}
+        </ul>,
+      );
+      bulletItems = [];
+    }
+    if (numberedItems.length > 0) {
+      elements.push(
+        <ol key={`numbers-${elements.length}`} className="my-1 list-decimal space-y-1 pl-5">
+          {numberedItems.map((item, index) => <li key={index}>{item}</li>)}
+        </ol>,
+      );
+      numberedItems = [];
+    }
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const bullet = trimmed.match(/^[-•]\s+(.+)$/);
+    const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (bullet) {
+      if (numberedItems.length > 0) flushLists();
+      bulletItems.push(bullet[1]);
+      return;
+    }
+    if (numbered) {
+      if (bulletItems.length > 0) flushLists();
+      numberedItems.push(numbered[1]);
+      return;
+    }
+    flushLists();
+    if (!trimmed) return;
+    elements.push(
+      <p key={`line-${index}`} className={trimmed.endsWith(":") ? "font-semibold" : undefined}>
+        {trimmed}
+      </p>,
+    );
+  });
+  flushLists();
+  return <div className="space-y-1">{elements}</div>;
 }
 
 const API_URL = import.meta.env.VITE_CHAT_API_URL || "/api/chat";
@@ -161,7 +212,9 @@ export default function ChatBot() {
                         : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
                     }`}
                   >
-                    <span className="whitespace-pre-line">{msg.content}</span>
+                    {msg.role === "assistant" ? renderAssistantContent(msg.content) : (
+                      <span className="whitespace-pre-line">{msg.content}</span>
+                    )}
                     {msg.sources && msg.sources.length > 0 && msg.status === "answered" && (
                       <details className="mt-2 text-xs opacity-70">
                         <summary className="cursor-pointer">Sources ({msg.sources.length})</summary>

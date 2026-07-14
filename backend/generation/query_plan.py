@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from difflib import get_close_matches
 from dataclasses import dataclass
 
 from backend.generation.intent import QueryIntent, detect_intent
@@ -34,14 +35,53 @@ _TYPO_REPLACEMENTS = {
     "musci": "music",
     "insturment": "instrument",
     "instruement": "instrument",
+    "favouriate": "favorite",
+    "faverite": "favorite",
+    "favorate": "favorite",
+    "photografy": "photography",
+    "photograhpy": "photography",
+    "hobies": "hobbies",
+    "hobbie": "hobby",
+    "achievment": "achievement",
+    "accomplishements": "achievements",
+    "lense": "lens",
+    "lensis": "lenses",
+    "sngs": "songs",
+    "musc": "music",
 }
+
+# Keep fuzzy correction limited to James's known public topics. This catches
+# minor new typos without autocorrecting names or inventing facts.
+_DOMAIN_WORDS = (
+    "achievements", "achievement", "photography", "hobbies", "hobby",
+    "favorite", "favourite", "instrument", "camera", "cameras", "lenses",
+    "lens", "music", "songs", "song", "bands", "band", "artists", "artist",
+    "projects", "project", "essays", "essay", "sports", "sport", "travel",
+    "traveled", "visited", "rank", "games", "game", "guitar", "education",
+    "school", "season", "food", "dislikes", "dislike",
+)
+_NEVER_FUZZY_CORRECT = {"james", "what", "does", "do", "like", "likes", "he", "his"}
+_DOMAIN_WORD_SET = frozenset(_DOMAIN_WORDS)
 
 
 def _clean(text: str) -> str:
     text = _WHITESPACE.sub(" ", text.strip())
     for wrong, right in _TYPO_REPLACEMENTS.items():
         text = re.sub(rf"\b{re.escape(wrong)}\b", right, text, flags=re.IGNORECASE)
+    text = re.sub(r"\b[A-Za-z][A-Za-z'-]*\b", _correct_domain_typo, text)
     return text.strip(" ,;?")
+
+
+def _correct_domain_typo(match: re.Match[str]) -> str:
+    token = match.group(0)
+    lowered = token.lower()
+    if lowered in _DOMAIN_WORD_SET or lowered in _NEVER_FUZZY_CORRECT or len(lowered) < 5:
+        return token
+    match_result = get_close_matches(lowered, _DOMAIN_WORDS, n=1, cutoff=0.84)
+    if not match_result:
+        return token
+    corrected = match_result[0]
+    return corrected if token.islower() else corrected.capitalize()
 
 
 def _canonical_question(question: str) -> str:
@@ -61,13 +101,33 @@ def _canonical_question(question: str) -> str:
     if re.search(r"(?:爱好|兴趣)", lower):
         return "What are James's hobbies?"
 
-    if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\bseason\b", lower) and re.search(
+    if re.search(r"\b(?:hobbies?|interests?|pastimes?|free\s+time)\b", lower):
+        return "What are James's hobbies?"
+
+    if re.search(r"\b(?:what\s+(?:did|has)|tell\s+me\s+what)\s+(?:james|he)\s+(?:write|wrote|written)\b", lower):
+        return "What essays has James written?"
+
+    if re.search(r"\b(?:what\s+does|what\s+do)\s+(?:james|he)\b", lower) and re.search(
+        r"\b(?:for\s+fun|in\s+(?:his|their)\s+free\s+time)\b", lower
+    ):
+        return "What are James's hobbies?"
+
+    if re.search(r"\b(?:apex(?:\s+legends)?)\b", lower) and re.search(r"\bseason\b", lower) and re.search(
         r"\b(?:reach|reached|reach(?:ed)?|it)\b", lower
     ):
         return "What season did James reach it in Apex Legends?"
 
-    if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\brank\b", lower):
+    if re.search(r"\b(?:apex(?:\s+legends)?)\b", lower) and re.search(
+        r"\b(?:rank|ranked|ranking|how\s+good|highest|peak)\b", lower
+    ):
         return "What is James's highest rank in Apex Legends?"
+
+    if re.search(r"\b(?:games?|gaming)\b", lower) and not re.search(
+        r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower
+    ) and re.search(
+        r"\b(?:play|plays|played|enjoy|enjoys|like|likes|favorite|favourite)\b", lower
+    ):
+        return "What are James's favorite games?"
 
     if (
         re.search(r"\b(?:songs?|tracks?)\b", lower)
@@ -126,12 +186,18 @@ def build_query_plan(question: str) -> QueryPlan:
             followup=intent.followup,
         )
 
-    rewritten = normalized != original
+    retrieval_query = normalized
+    if "coding_origin" in intent.entities:
+        retrieval_query = "Self-taught Python during middle school programming"
+    elif "gaming_reason" in intent.entities:
+        retrieval_query = "gaming unwind decompress after school friends peers social connection"
+
+    rewritten = normalized != original or retrieval_query != normalized
     confidence = 0.96 if rewritten else (0.82 if intent.kind != "unknown" else 0.20)
     return QueryPlan(
         original_question=original,
         normalized_question=normalized,
-        retrieval_query=normalized,
+        retrieval_query=retrieval_query,
         intent=intent,
         confidence=confidence,
         rewritten=rewritten,

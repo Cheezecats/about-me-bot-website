@@ -12,6 +12,8 @@
     "education": ["kb_extra/education.md"],
     "projects": ["kb_extra/projects_skills.md"],
     "programming_languages": ["kb_extra/projects_skills.md"],
+    "coding_learning": ["kb_extra/projects_skills.md", "kb_extra/education.md"],
+    "gaming_reasons": ["kb_extra/gaming.md", "kb_extra/personality.md"],
     "writing": ["kb_extra/writing.md"],
     "writing_details": ["kb_extra/writing.md"],
     "achievements": ["kb_extra/achievements.md"],
@@ -100,6 +102,15 @@
     {"name": "Flappy Bird game", "tags": ["python", "pygame"]}
   ],
   "programming_languages": ["Python", "C", "C++", "TypeScript", "Dart (Flutter)", "Solidity"],
+  "coding_learning": {
+    "language": "Python",
+    "method": "self-taught",
+    "time": "middle school",
+    "other_languages": ["C", "C++", "TypeScript", "Dart (Flutter)", "Solidity"]
+  },
+  "gaming_reasons": {
+    "answer": "James enjoys gaming because it helps him relax and decompress after school, while also giving him a way to stay connected with friends and peers."
+  },
   "writing": [
     "LLM hallucination research paper",
     "Histology classification research paper",

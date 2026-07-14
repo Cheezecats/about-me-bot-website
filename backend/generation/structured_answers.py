@@ -173,6 +173,15 @@ def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent)
     category = metadata.get("category", "")
     title = metadata.get("title", "")
     lower = question.lower()
+    facts = load_profile_facts()
+    if "coding_origin" in intent.entities and category in {"projects_skills", "education"}:
+        coding = facts["coding_learning"]
+        return (
+            f"James {coding['method']} learned {coding['language']} during {coding['time']}. "
+            f"He also works with {', '.join(coding['other_languages'][:-1])}, and {coding['other_languages'][-1]}."
+        )
+    if "gaming_reason" in intent.entities and category in {"hobby", "gaming", "personality"}:
+        return facts["gaming_reasons"]["answer"]
     if category == "apex_rank" and re.search(r"\bseason\b", lower) and not re.search(r"\brank\b", lower):
         apex_rank = load_profile_facts().get("apex_rank", {})
         if apex_rank.get("rank") and apex_rank.get("season"):
@@ -237,6 +246,12 @@ def format_structured_answer(
     if title == "Sports":
         return _format_sports(facts, intent, question)
     if title in {"Projects & Skills", "Programming languages"}:
+        if "coding_origin" in intent.entities:
+            coding = facts["coding_learning"]
+            return (
+                f"James {coding['method']} learned {coding['language']} during {coding['time']}. "
+                f"He also works with {', '.join(coding['other_languages'][:-1])}, and {coding['other_languages'][-1]}."
+            )
         return _format_projects(facts, intent, question)
     if title == "Education":
         education = facts["education"]

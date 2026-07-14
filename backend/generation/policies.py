@@ -8,6 +8,7 @@ SENSITIVE_REQUEST_PATTERNS = [
     r"\bpassword\b",
     r"\b(?:phone|telephone)\s+number\b",
     r"\bhome\s+address\b",
+    r"\bprivate\s+address\b",
     r"\bexact\s+(?:address|location)\b",
     r"\b(?:bank|account)\s+number\b",
     r"\bsocial\s+security\b",
