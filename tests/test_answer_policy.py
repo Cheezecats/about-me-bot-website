@@ -26,6 +26,26 @@ def test_product_identity_questions_are_not_sent_to_the_james_kb():
     assert result["sources"] == []
 
 
+def test_product_meta_questions_explain_the_system_without_retrieval():
+    cases = [
+        ("What is this chat's architecture?", ["RAG", "FastAPI", "BM25", "structured"]),
+        ("What is the AI model?", ["qwen2.5:3b", "Ollama"]),
+        ("Where does this chat's knowledge come from?", ["profile_facts.json", "chunks.json"]),
+        ("How does source attribution work?", ["knowledge-base chunks", "live web citations"]),
+        ("Does this chat remember our conversation?", ["in-memory session", "session_id"]),
+        ("Is this chatbot fine-tuned?", ["not fine-tuned", "reranker"]),
+        ("What are this chatbot's limitations?", ["general web search", "public profile"]),
+        ("How is this website deployed?", ["GitHub Pages", "Cloudflare Quick Tunnel"]),
+    ]
+    for question, expected_terms in cases:
+        result = answer.answer_or_refuse(question, [], enforce_confidence_threshold=False)
+        assert result["status"] == "answered", question
+        assert result["reason"] == "product_meta", question
+        assert result["sources"] == [], question
+        for term in expected_terms:
+            assert term.lower() in result["answer"].lower(), (question, term)
+
+
 def test_small_talk_detection_is_narrow():
     assert answer.is_small_talk("hello!")
     assert answer.is_small_talk("hey there")

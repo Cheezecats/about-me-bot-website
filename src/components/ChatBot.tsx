@@ -85,7 +85,7 @@ const STARTER_QUESTIONS = [
   { icon: "🎮", label: "Favorite games", question: "What is James's favorite game?" },
   { icon: "📷", label: "Camera setup", question: "What camera and lenses does James use?" },
   { icon: "⚡", label: "Hobbies", question: "What does James do for fun?" },
-  { icon: "🧪", label: "Projects", question: "What projects has James built?" },
+  { icon: "🧭", label: "How it works", question: "How does this chat work?" },
 ];
 
 export default function ChatBot() {
