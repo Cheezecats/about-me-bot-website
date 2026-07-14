@@ -39,9 +39,12 @@ export type Essay = {
   figures: { src: string; alt: string; width: string }[];
 };
 
-const pic = (name: string) => `/assets/pictures/${encodeURI(name)}`;
-const thumb = (name: string) => `/assets/thumbnails/${encodeURI(name)}`;
-const pdf = (name: string) => `/assets/pdf/${encodeURI(name)}`;
+export const assetPath = (folder: string, name: string) =>
+  `${import.meta.env.BASE_URL}assets/${folder}/${encodeURI(name)}`;
+
+const pic = (name: string) => assetPath("pictures", name);
+const thumb = (name: string) => assetPath("thumbnails", name);
+const pdf = (name: string) => assetPath("pdf", name);
 
 export const bio = {
   name: "James Sui",
