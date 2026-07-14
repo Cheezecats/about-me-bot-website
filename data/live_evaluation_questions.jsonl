@@ -4,3 +4,11 @@
 {"question":"What did James learn from ice hockey?","expected_status":"answered","terms":["teamwork"]}
 {"question":"What is James's LLM research paper about?","expected_status":"answered","terms":["hallucination","model"]}
 {"question":"What is James's father's hometown?","expected_status":"refused","terms":["public projects"]}
+{"question":"songs he like","expected_status":"answered","terms":["君の神様になりたい","こはならむ"]}
+{"question":"what does james do for fun","expected_status":"answered","terms":["electric guitar","PC building"]}
+{"question":"what games does james play","expected_status":"answered","terms":["Apex Legends","Cyberpunk 2077"]}
+{"question":"how good is james at apex","expected_status":"answered","terms":["Diamond 2","Season 22"]}
+{"question":"james hobies","expected_status":"answered","terms":["photography and videography"]}
+{"question":"what did james write","expected_status":"answered","terms":["LLM hallucination","Uniswap V3"]}
+{"question":"what is james's camera gear","expected_status":"answered","terms":["Nikon Z8","DJI Action 4"]}
+{"question":"what's james's private address","expected_status":"refused","terms":["public projects"]}

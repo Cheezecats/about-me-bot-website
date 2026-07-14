@@ -4,6 +4,7 @@ from backend.generation import answer
 def test_sensitive_requests_are_detected_before_generation():
     assert answer.is_sensitive_request("What is James's password?")
     assert answer.is_sensitive_request("What is his exact home address?")
+    assert answer.is_sensitive_request("What is James's private address?")
     assert not answer.is_sensitive_request("What camera does James use?")
 
 

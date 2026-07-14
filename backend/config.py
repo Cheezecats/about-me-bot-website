@@ -60,8 +60,9 @@ CORS_ORIGINS = [
 ]
 
 REFUSAL_MESSAGE = (
-    "I don't have that information about James, but I can help with his public "
-    "projects, hobbies, sports, photography, essays, or achievements."
+    "That detail isn't in James's public profile, so I won't guess. I can help with "
+    "his public projects, hobbies, sports, photography, essays, achievements, "
+    "travel, or favorites."
 )
 UNAVAILABLE_MESSAGE = "I couldn't generate an answer right now. Please try again in a moment."
 CLARIFICATION_MESSAGE = (
