@@ -1,4 +1,12 @@
 {"question":"What is James's favorite game?","mode":"structured","title":"Favorite games","terms":["Apex Legends","CS:GO/CS2","Valorant"]}
+{"question":"What is James's favorite anime?","mode":"structured","title":"Favorite anime","terms":["Bang Dream Mygo","Clannad","Jojo's Bizarre Adventure","K-ON"]}
+{"question":"anime","mode":"structured","title":"Favorite anime","terms":["Bang Dream Mygo","Clannad","K-ON"]}
+{"question":"favoriate movie","mode":"structured","title":"Favorite movie","terms":["Jurassic Park","君の名は"]}
+{"question":"movie","mode":"structured","title":"Favorite movie","terms":["Jurassic Park","君の名は"]}
+{"question":"What is James's favorite book series?","mode":"structured","title":"Favorite book series","terms":["Percy Jackson","Rick Riordan"]}
+{"question":"What is James's favorite place?","mode":"structured","title":"Favorite place","terms":["Japan","Tokyo"]}
+{"question":"What is James's favorite school subject?","mode":"structured","title":"Favorite school subject","terms":["Physics"]}
+{"question":"Which IDEs and editors does James use?","mode":"structured","title":"IDE/editor usage","terms":["Claude","VS Code","Zed"]}
 {"question":"What games does James enjoy?","mode":"structured","title":"Favorite games","terms":["Cyberpunk 2077","GTA 5"]}
 {"question":"Compare competitive and non-competitive games","mode":"structured","title":"Favorite games","terms":["Competitive:","Non-competitive:"]}
 {"question":"What are James's hobbies?","mode":"structured","title":"Hobbies & Interests","terms":["photography and videography","electric guitar"]}

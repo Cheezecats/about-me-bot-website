@@ -20,7 +20,7 @@ class QueryIntent:
 
 
 _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographs?|photo|photos?|picture|pictures?|videograph|video|gear)\b", "photography"),
+    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographs?|photo|photos?|picture|pictures?|videograph|video|film|filmed|filming|gear)\b", "photography"),
     (r"\b(?:favorite|favourite)\s+(?:game|games)\b|\b(?:game|games|gaming|apex|valorant|csgo|cyberpunk)\b", "games"),
     (r"\b(?:food|eat|eating|ramen|ice cream)\b", "food"),
     (r"\b(?:season|winter|summer|spring|autumn|fall)\b", "season"),
@@ -30,9 +30,9 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b(?:travel(?:ed|led|ing)?|visited|visit|been|went|countries|country|trip|abroad)\b", "travel"),
     (r"\b(?:essay|essays|paper|papers|research|writing|written|wrote|write|ia|internal assessment)\b", "writing"),
     (r"\b(?:award|awards|achievement|achievements|accomplishment|accomplishments|won|victory|medal)\b", "achievements"),
+    (r"\b(?:favorite|favourite)\s+(?:anime|movie|movies|film|films|book|books|series|place|subject|subjects)\b", "favorites"),
     (r"\b(?:school|study|studies|education|curriculum|grade|ibdp|igcse|subjects?)\b", "education"),
     (r"\b(?:project|projects|built|created|developed|skills?|programming|code|coding|language|python|typescript|solidity)\b", "projects"),
-    (r"\b(?:anime|movie|film|book|series)\b", "favorites"),
 )
 
 _FOLLOWUP_PATTERN = re.compile(
@@ -100,6 +100,18 @@ def detect_intent(question: str) -> QueryIntent:
 
     if re.search(r"\b(?:school|academic|class(?:room)?)\s+projects?\b", lower):
         topic = "projects"
+    elif re.search(r"\b(?:film|filmed|filming|shot|recorded)\b", lower) and re.search(
+        r"\b(?:what|which|did|has|have)\b", lower
+    ):
+        topic = "photography"
+    elif re.search(
+        r"\b(?:favorite|favourite)\s+(?:anime|movie|movies|film|films|book|books|series|place|school\s+subject|subject)\b",
+        lower,
+    ) or re.fullmatch(
+        r"(?:james'?s?\s+)?(?:favorite|favourite)?\s*(?:anime|movie|film|book(?:\s+series)?|series|place|subject)",
+        lower,
+    ) or re.search(r"\b(?:ide|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower):
+        topic = "favorites"
     elif re.search(r"\b(?:dislike|dislikes|disliked|least favorite|hate|hates)\b", lower):
         topic = "preferences"
     elif re.search(r"\b(?:train|training|competed|competition)\b", lower) and re.search(r"\bhockey\b", lower):
@@ -134,6 +146,12 @@ def detect_intent(question: str) -> QueryIntent:
             "gaming_reason" if re.search(r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower) and re.search(r"\b(?:game|games|gaming|apex|valorant|csgo)\b", lower) else None,
             "coding_origin" if re.search(r"\b(?:learn|learned|self-taught|taught|started)\b", lower) and re.search(r"\b(?:code|coding|programming|python|software)\b", lower) else None,
             "apex_rank" if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\brank\b", lower) else None,
+            "anime" if re.search(r"\banime\b", lower) else None,
+            "movie" if re.search(r"\b(?:movie|movies)\b", lower) and not re.search(r"\b(?:film|filmed|filming|shot|recorded)\b", lower) else None,
+            "book" if re.search(r"\b(?:book|books|series)\b", lower) else None,
+            "place" if re.search(r"\bplace\b", lower) else None,
+            "school_subject" if re.search(r"\b(?:school\s+)?subjects?\b", lower) else None,
+            "ide" if re.search(r"\b(?:ide|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower) else None,
         )
         if entity
     )

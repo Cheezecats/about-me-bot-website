@@ -48,6 +48,9 @@ _TYPO_REPLACEMENTS = {
     "lensis": "lenses",
     "sngs": "songs",
     "musc": "music",
+    "movis": "movies",
+    "anme": "anime",
+    "bookes": "books",
 }
 
 # Keep fuzzy correction limited to James's known public topics. This catches
@@ -58,7 +61,9 @@ _DOMAIN_WORDS = (
     "lens", "music", "songs", "song", "bands", "band", "artists", "artist",
     "projects", "project", "essays", "essay", "sports", "sport", "travel",
     "traveled", "visited", "rank", "games", "game", "guitar", "education",
-    "school", "season", "food", "dislikes", "dislike",
+    "school", "season", "food", "dislikes", "dislike", "anime", "movie",
+    "movies", "film", "films", "book", "books", "series", "place", "subject",
+    "subjects", "ide", "editor", "editors", "vscode", "zed", "workbuddy", "trae",
 )
 _NEVER_FUZZY_CORRECT = {"james", "what", "does", "do", "like", "likes", "he", "his"}
 _DOMAIN_WORD_SET = frozenset(_DOMAIN_WORDS)
@@ -88,6 +93,9 @@ def _canonical_question(question: str) -> str:
     cleaned = _clean(question)
     lower = cleaned.lower()
 
+    if re.search(r"\b(?:ide|ides|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower):
+        return "What IDE/editor tools does James use?"
+
     # Minimal deterministic CJK routing for the public topics the widget
     # already supports. This avoids adding a translation dependency while
     # still allowing common Chinese-only questions to reach the same curated
@@ -105,6 +113,27 @@ def _canonical_question(question: str) -> str:
         if is_additional_detail_request(cleaned):
             return "What else does James do for fun?"
         return "What are James's hobbies?"
+
+    if re.search(r"\b(?:what\s+did|what\s+has|did|has)\s+(?:james|he)\s+film(?:ed|ing)?\b", lower):
+        return cleaned
+
+    # Bare topic chips and informal questions should converge on the same
+    # curated summary. Otherwise "anime" can retrieve a secondary paragraph
+    # and bypass the deterministic formatter used for the favorite fact.
+    favorite_topic_rules = (
+        (r"\banime\b", "What is James's favorite anime?"),
+        (r"\b(?:movie|movies|film|films)\b", "What is James's favorite movie?"),
+        (r"\b(?:book|books|book\s+series|series)\b", "What is James's favorite book series?"),
+        (r"\b(?:favorite|favourite)\s+place\b", "What is James's favorite place?"),
+        (r"\b(?:favorite|favourite)\s+(?:school\s+)?subjects?\b", "What is James's favorite school subject?"),
+    )
+    for pattern, canonical in favorite_topic_rules:
+        if re.fullmatch(rf"(?:james'?s?\s+)?(?:favorite|favourite)?\s*{pattern}", lower) or (
+            re.search(pattern, lower)
+            and re.search(r"\b(?:like|likes|favorite|favourite|enjoy|enjoys|love|loves|watch|watched|read|reads|reading)\b", lower)
+            and not re.search(r"\b(?:influence|influenced|impact|style|watch|watched|read|reading)\b", lower)
+        ):
+            return canonical
 
     if re.search(r"\b(?:anything|what)\s+(?:else|more)\b", lower) and re.search(r"\b(?:fun|hobby|hobbies|interest|interests?)\b", lower):
         return "What else does James do for fun?"

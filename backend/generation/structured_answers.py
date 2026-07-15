@@ -14,6 +14,13 @@ STRUCTURED_SUMMARY_TITLES = frozenset(
         "Education",
         "Electric guitar",
         "Favorite games",
+        "Favorite anime",
+        "Anime (top favorites)",
+        "Favorite movie",
+        "Favorite book series",
+        "Favorite place",
+        "Favorite school subject",
+        "IDE/editor usage",
         "Favorite food",
         "Favorite music",
         "Favorite season",
@@ -33,6 +40,13 @@ _SUMMARY_TOPICS: dict[str, frozenset[str]] = {
     "Education": frozenset({"education"}),
     "Electric guitar": frozenset({"hobbies"}),
     "Favorite games": frozenset({"games"}),
+    "Favorite anime": frozenset({"favorites"}),
+    "Anime (top favorites)": frozenset({"favorites"}),
+    "Favorite movie": frozenset({"favorites"}),
+    "Favorite book series": frozenset({"favorites"}),
+    "Favorite place": frozenset({"favorites", "travel"}),
+    "Favorite school subject": frozenset({"favorites", "education"}),
+    "IDE/editor usage": frozenset({"favorites"}),
     "Favorite food": frozenset({"food"}),
     "Favorite music": frozenset({"music"}),
     "Favorite season": frozenset({"season"}),
@@ -60,6 +74,17 @@ def _summary_matches_intent(title: str, intent: QueryIntent) -> bool:
 
     if title == "Favorite season" and intent.topic == "preferences" and "dislikes" in intent.entities:
         return True
+    required_entity = {
+        "Favorite anime": "anime",
+        "Anime (top favorites)": "anime",
+        "Favorite movie": "movie",
+        "Favorite book series": "book",
+        "Favorite place": "place",
+        "Favorite school subject": "school_subject",
+        "IDE/editor usage": "ide",
+    }.get(title)
+    if required_entity and required_entity not in intent.entities:
+        return False
     return intent.topic in _SUMMARY_TOPICS.get(title, frozenset())
 
 
@@ -110,6 +135,40 @@ def _format_music(facts: dict, intent: QueryIntent) -> str:
         f"James's current favorite song is \"{music['song']}\" by {music['song_artist']}. "
         f"His favorite artist is {music['artist']}; favorite bands include {', '.join(music['bands'])}."
     )
+
+
+def _format_favorite_anime(facts: dict) -> str:
+    anime = facts["favorite_anime"]
+    answer = "James's favorite anime include:\n\n" + _bullets(anime["top"])
+    if anime.get("also_loves"):
+        answer += "\n\nHe also loves " + ", ".join(anime["also_loves"]) + "."
+    return answer
+
+
+def _format_favorite_movie(facts: dict) -> str:
+    movie = facts["favorite_movie"]
+    return (
+        "James's favorite movies are:\n\n"
+        f"- Hollywood: {movie['hollywood']}\n"
+        f"- Non-Hollywood: {movie['non_hollywood']}"
+    )
+
+
+def _format_favorite_book(facts: dict) -> str:
+    book = facts["favorite_book_series"]
+    return f"James's favorite book series is {book['title']} by {book['author']}. {book['detail']}"
+
+
+def _format_favorite_place(facts: dict) -> str:
+    return f"James's favorite place is {facts['favorite_place']}."
+
+
+def _format_favorite_school_subject(facts: dict) -> str:
+    return f"James's favorite school subject is {facts['favorite_school_subject']}."
+
+
+def _format_ide_usage(facts: dict) -> str:
+    return "James uses several IDEs and editors:\n\n" + _bullets(facts["ide_editors"])
 
 
 def _format_sports(facts: dict, intent: QueryIntent, question: str) -> str:
@@ -244,6 +303,18 @@ def format_structured_answer(
 
     if title == "Favorite games":
         return _format_games(facts, intent)
+    if title in {"Favorite anime", "Anime (top favorites)"}:
+        return _format_favorite_anime(facts)
+    if title == "Favorite movie":
+        return _format_favorite_movie(facts)
+    if title == "Favorite book series":
+        return _format_favorite_book(facts)
+    if title == "Favorite place":
+        return _format_favorite_place(facts)
+    if title == "Favorite school subject":
+        return _format_favorite_school_subject(facts)
+    if title == "IDE/editor usage":
+        return _format_ide_usage(facts)
     if title == "Favorite food":
         food = facts["favorite_food"]
         return f"James's favorite food is {food['primary']}. He also enjoys {', '.join(food['also_enjoys'][:-1])}, and {food['also_enjoys'][-1]}."

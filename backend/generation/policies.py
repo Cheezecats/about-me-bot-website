@@ -36,7 +36,9 @@ NON_PROFILE_REQUEST_PATTERNS = [
     r"^(?:nice|good|fun|cool|best)\s+games?[!.?,\s]*$",
     r"\b(?:recommend|recommendation|recommendations|suggest|suggestions)\b",
     r"\bfavorite\s+(?:programming\s+)?language\b",
-    r"\b(?:favorite|favourite)\s+(?:restaurant|photographer|university|college|movie|film|book|anime|series|actor|actress|brand)\b",
+    # Supported favorite categories are answered from curated facts. Keep
+    # this refusal rule limited to categories that are absent from the KB.
+    r"\b(?:favorite|favourite)\s+(?:restaurant|photographer|university|college|actor|actress|brand)\b",
     r"\bleast\s+favorite\s+(?:games?|songs?|artists?|bands?|restaurants?|movies?|films?|books?)\b",
     r"\bfuture\s+(?:university|college)\b",
 ]
