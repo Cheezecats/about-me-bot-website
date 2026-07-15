@@ -4,7 +4,7 @@ import re
 from difflib import get_close_matches
 from dataclasses import dataclass
 
-from backend.generation.intent import QueryIntent, detect_intent
+from backend.generation.intent import QueryIntent, detect_intent, is_additional_detail_request
 
 
 @dataclass(frozen=True)
@@ -102,7 +102,7 @@ def _canonical_question(question: str) -> str:
         return "What are James's hobbies?"
 
     if re.search(r"\b(?:hobbies?|interests?|pastimes?|free\s+time)\b", lower):
-        if re.search(r"\b(?:anything|what)\s+(?:else|more)\b|\b(?:other|additional)\s+(?:hobbies|things|interests?)\b", lower):
+        if is_additional_detail_request(cleaned):
             return "What else does James do for fun?"
         return "What are James's hobbies?"
 

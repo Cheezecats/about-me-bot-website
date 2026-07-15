@@ -37,9 +37,28 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
 
 _FOLLOWUP_PATTERN = re.compile(
     r"\b(?:what about|tell me more|when did (?:he|james) start|where was that|which one|the first|the second|the third)\b"
-    r"|\b(?:anything else|what else|anything more|his|her|their|that|this|those|these)\b",
+    r"|\b(?:anything else|what else|anything more|and|also|his|her|their|that|this|those|these)\b",
     re.IGNORECASE,
 )
+
+
+def is_additional_detail_request(question: str) -> bool:
+    """Detect natural-language requests for more items in the current topic."""
+
+    lower = question.strip().lower().strip(" ,;?!")
+    if re.search(r"\b(?:anything|what)\s+(?:else|more)\b", lower):
+        return True
+    if re.search(r"\b(?:tell me more|more about|other|additional|another|besides)\b", lower):
+        return True
+    if re.search(r"\b(?:more|some more)\s+(?:hobbies?|interests?|activities?|things)\b", lower):
+        return True
+    if lower in {"and", "also", "more", "other", "another"} or re.search(r"\b(?:and|also)\s*$", lower):
+        return True
+    if re.match(r"^(?:and|also)\b", lower) and not re.search(
+        r"\b(?:what|which|list|name)\b.*\b(?:hobbies?|interests?)\b", lower
+    ):
+        return True
+    return False
 
 
 def _ordinal(question: str) -> int | None:
@@ -86,7 +105,7 @@ def detect_intent(question: str) -> QueryIntent:
     before_match = re.search(r"\bbefore\s+(20\d{2})\b", lower)
     followup = bool(_FOLLOWUP_PATTERN.search(question))
     additional_hobby_request = bool(
-        re.search(r"\b(?:anything|what)\s+(?:else|more)\b|\b(?:other|additional)\s+(?:hobbies|things|interests?)\b", lower)
+        is_additional_detail_request(question)
         and re.search(r"\b(?:fun|hobbies?|interests?|pastimes?)\b", lower)
     )
     entities = tuple(
