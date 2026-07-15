@@ -73,6 +73,18 @@ def test_api_resolves_anything_else_using_the_previous_hobby_topic():
         assert "3d printer" in second.json()["answer"].lower()
 
 
+def test_api_handles_user_reported_camera_and_project_phrasings():
+    with TestClient(app, base_url="http://localhost") as client:
+        cameras = client.post("/api/chat", json={"question": "what are his cameras"}).json()
+        projects = client.post("/api/chat", json={"question": "school projects?"}).json()
+        assert cameras["status"] == "answered"
+        assert "nikon z8" in cameras["answer"].lower()
+        assert "iphone 13 pro" in cameras["answer"].lower()
+        assert projects["status"] == "answered"
+        assert "ftc robotics project" in projects["answer"].lower()
+        assert "flappy" not in projects["answer"].lower()
+
+
 def test_api_can_disable_planner_without_changing_legacy_answer_path(monkeypatch):
     monkeypatch.setattr(config, "QUERY_PLANNER_ENABLED", False)
     with TestClient(app, base_url="http://localhost") as client:

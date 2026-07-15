@@ -117,6 +117,11 @@ def _canonical_question(question: str) -> str:
     ):
         return "What are James's hobbies?"
 
+    if not re.search(r"\blens(?:es)?\b", lower) and re.search(r"\bcameras?\b", lower) and re.search(
+        r"\b(?:what|which|his|james|use|uses|does)\b", lower
+    ):
+        return "What camera gear does James use?"
+
     if re.search(r"\b(?:apex(?:\s+legends)?)\b", lower) and re.search(r"\bseason\b", lower) and re.search(
         r"\b(?:reach|reached|reach(?:ed)?|it)\b", lower
     ):

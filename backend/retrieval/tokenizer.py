@@ -70,6 +70,8 @@ QUERY_EXPANSIONS = {
     "favourite": ("favorite",),
     "photography": ("photographer", "videography", "camera", "nikon", "lenses"),
     "photographer": ("photography", "videography", "camera"),
+    "camera": ("cameras", "photography", "nikon", "lenses"),
+    "cameras": ("camera", "photography", "nikon", "lenses"),
     "essay": ("essays", "paper", "papers", "research", "writing"),
     "essays": ("essay", "paper", "papers", "research", "writing"),
     "paper": ("papers", "essay", "essays", "research", "writing"),

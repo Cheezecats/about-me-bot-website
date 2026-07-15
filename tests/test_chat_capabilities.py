@@ -155,6 +155,8 @@ def test_query_planner_handles_new_informal_phrasing_without_guessing():
     chunks, index = _runtime()
     cases = [
         ("what does james do for fun", "hobbies", "electric guitar"),
+        ("what are his cameras", "camera gear", "Nikon Z8"),
+        ("school projects?", "school projects", "FTC robotics project"),
         ("what games does james play", "favorite games", "Apex Legends"),
         ("how good is james at apex", "highest rank", "Diamond 2"),
         ("james hobies", "hobbies", "photography and videography"),
@@ -177,6 +179,21 @@ def test_query_planner_handles_new_informal_phrasing_without_guessing():
         )
         assert result["status"] == "answered", question
         assert expected.lower() in result["answer"].lower(), question
+
+
+def test_public_chat_excludes_flappy_bird_from_projects_and_retrieval():
+    chunks, index = _runtime()
+    assert all("flappy" not in chunk["text"].lower() for chunk in chunks)
+
+    plan = build_query_plan("What projects has James built?")
+    result = answer_or_refuse(
+        "What projects has James built?",
+        retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K),
+        enforce_confidence_threshold=False,
+        intent_question=plan.normalized_question,
+    )
+    assert result["status"] == "answered"
+    assert "flappy" not in result["answer"].lower()
 
 
 def test_contextual_anything_else_returns_additional_hobby_evidence():

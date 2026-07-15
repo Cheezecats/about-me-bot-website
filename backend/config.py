@@ -36,6 +36,10 @@ CONFIDENCE_THRESHOLD = 0.40
 MAX_HISTORY_TURNS = 3
 MAX_QUERY_LEN = 500
 CHATBOT_NAME = "JamChat"
+# Facts James has decided not to present through the public chatbot. Keep the
+# raw source corpus intact for private project maintenance, but never index or
+# retrieve these chunks in the live chat path.
+HIDDEN_CHAT_CHUNK_IDS = frozenset({"projects_skills_flappy_bird_game_012"})
 MAX_SESSION_ID_LEN = 128
 MAX_REQUESTS_PER_MINUTE = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
 SESSION_TTL_SECONDS = 60 * 60

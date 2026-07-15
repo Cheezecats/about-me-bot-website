@@ -98,8 +98,7 @@
     {"name": "LLM hallucination evaluator", "tags": ["ai", "llm", "research", "python"]},
     {"name": "Histology classifier benchmark", "tags": ["ai", "computer vision", "research", "python"]},
     {"name": "Uniswap V3 research experiment", "tags": ["solidity", "blockchain", "research"]},
-    {"name": "FTC robotics project", "tags": ["robotics", "hardware"]},
-    {"name": "Flappy Bird game", "tags": ["python", "pygame"]}
+    {"name": "FTC robotics project", "tags": ["robotics", "hardware"]}
   ],
   "programming_languages": ["Python", "C", "C++", "TypeScript", "Dart (Flutter)", "Solidity"],
   "coding_learning": {
