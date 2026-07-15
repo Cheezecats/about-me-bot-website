@@ -36,8 +36,8 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 _FOLLOWUP_PATTERN = re.compile(
-    r"\b(?:what about|tell me more|when did (?:he|james) start|where was that|which one|the first|the second|the third)\b"
-    r"|\b(?:anything else|what else|anything more|and|also|his|her|their|that|this|those|these)\b",
+    r"\b(?:what about|tell me more|when did (?:he|james) start|where was that|which one|the first|the second|the third|continue|go on|keep going|is that all)\b"
+    r"|\b(?:anything else|what else|anything more|something else|anything to add|and|also|his|her|their|that|this|those|these)\b",
     re.IGNORECASE,
 )
 
@@ -46,13 +46,18 @@ def is_additional_detail_request(question: str) -> bool:
     """Detect natural-language requests for more items in the current topic."""
 
     lower = question.strip().lower().strip(" ,;?!")
-    if re.search(r"\b(?:anything|what)\s+(?:else|more)\b", lower):
+    if re.search(r"\b(?:anything|what|something)\s+(?:else|more)\b", lower):
         return True
-    if re.search(r"\b(?:tell me more|more about|other|additional|another|besides)\b", lower):
+    if re.search(
+        r"\b(?:tell me more|more about|other|additional|another|besides|anything to add|what about the rest|is that all|go on|keep going)\b",
+        lower,
+    ):
         return True
     if re.search(r"\b(?:more|some more)\s+(?:hobbies?|interests?|activities?|things)\b", lower):
         return True
-    if lower in {"and", "also", "more", "other", "another"} or re.search(r"\b(?:and|also)\s*$", lower):
+    if lower in {"and", "also", "more", "other", "another", "continue", "go on", "keep going", "is that all"} or re.search(
+        r"\b(?:and|also|more|continue)\s*$", lower
+    ):
         return True
     if re.match(r"^(?:and|also)\b", lower) and not re.search(
         r"\b(?:what|which|list|name)\b.*\b(?:hobbies?|interests?)\b", lower
