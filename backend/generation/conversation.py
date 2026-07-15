@@ -8,7 +8,7 @@ from backend import config
 _FOLLOWUP_TOKENS = frozenset(
     {
         "he", "his", "him", "she", "her", "it", "they", "them", "about", "that", "this", "those", "these",
-        "anything", "else", "also", "more", "other", "another", "start", "started", "one", "first", "second", "third",
+        "anything", "else", "also", "more", "other", "another", "and", "start", "started", "one", "first", "second", "third",
     }
 )
 _EXPLICIT_TOPIC_TOKENS = frozenset(

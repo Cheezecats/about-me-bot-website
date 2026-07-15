@@ -218,6 +218,20 @@ def test_anything_else_does_not_turn_a_different_topic_into_hobbies():
     assert "additional_hobbies" not in plan.intent.entities
 
 
+def test_common_additional_hobby_phrasings_are_normalized_consistently():
+    for question in [
+        "other hobbies",
+        "more hobbies",
+        "tell me more",
+        "and?",
+        "what does he do for fun besides that?",
+        "what other things does James enjoy?",
+    ]:
+        plan = build_query_plan(f"hobbies {question}")
+        assert plan.normalized_question == "What else does James do for fun?", question
+        assert "additional_hobbies" in plan.intent.entities, question
+
+
 def test_ia_entities_and_apex_season_followup_use_focused_answers():
     chunks, index = _runtime()
     for question, expected in [
