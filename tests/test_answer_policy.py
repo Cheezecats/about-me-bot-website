@@ -26,6 +26,12 @@ def test_product_identity_questions_are_not_sent_to_the_james_kb():
     assert result["sources"] == []
 
 
+def test_product_identity_uses_the_current_chatbot_name():
+    result = answer.answer_or_refuse("what are you", [], enforce_confidence_threshold=False)
+    assert result["status"] == "answered"
+    assert "JamChat" in result["answer"]
+
+
 def test_product_meta_questions_explain_the_system_without_retrieval():
     cases = [
         ("What is this chat's architecture?", ["RAG", "FastAPI", "BM25", "structured"]),

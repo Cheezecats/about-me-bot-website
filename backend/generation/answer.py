@@ -178,9 +178,13 @@ def _is_compound_request(question: str) -> bool:
     return len(split_compound_question(question)) > 1
 
 
-def _select_context_chunks(question: str, reranked_chunks: list[dict]) -> list[dict]:
+def _select_context_chunks(
+    question: str, reranked_chunks: list[dict], intent: QueryIntent | None = None
+) -> list[dict]:
     if len(reranked_chunks) <= 1:
         return reranked_chunks
+    if intent is not None and "additional_hobbies" in intent.entities:
+        return reranked_chunks[:4]
     if _is_structured_summary(reranked_chunks[0]):
         return reranked_chunks[:1]
     top_score = float(reranked_chunks[0].get("score", 0.0))
@@ -238,7 +242,7 @@ def answer_or_refuse(
         )
 
     top_score = float(reranked_chunks[0].get("score", 0.0))
-    top_chunks = _select_context_chunks(question, reranked_chunks)
+    top_chunks = _select_context_chunks(semantic_question, reranked_chunks, intent)
     sources = _build_sources(top_chunks)
     if enforce_confidence_threshold and top_score < config.CONFIDENCE_THRESHOLD:
         return _result(

@@ -8,7 +8,7 @@ from backend import config
 _FOLLOWUP_TOKENS = frozenset(
     {
         "he", "his", "him", "she", "her", "it", "they", "them", "about", "that", "this", "those", "these",
-        "start", "started", "more", "one", "first", "second", "third",
+        "anything", "else", "also", "more", "other", "another", "start", "started", "one", "first", "second", "third",
     }
 )
 _EXPLICIT_TOPIC_TOKENS = frozenset(
@@ -26,7 +26,7 @@ _STOPWORDS = frozenset(
     "this that it he his him she her they them what when where why how james".split()
 )
 _VAGUE_FOLLOWUP_PATTERN = re.compile(
-    r"^(?:what about|tell me more|and|what about it|what about that|what about this)[!.?,\s]*$",
+    r"^(?:what about|tell me more|anything else|what else|anything more|and|what about it|what about that|what about this)[!.?,\s]*$",
     re.IGNORECASE,
 )
 

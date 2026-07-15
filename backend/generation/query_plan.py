@@ -102,7 +102,12 @@ def _canonical_question(question: str) -> str:
         return "What are James's hobbies?"
 
     if re.search(r"\b(?:hobbies?|interests?|pastimes?|free\s+time)\b", lower):
+        if re.search(r"\b(?:anything|what)\s+(?:else|more)\b|\b(?:other|additional)\s+(?:hobbies|things|interests?)\b", lower):
+            return "What else does James do for fun?"
         return "What are James's hobbies?"
+
+    if re.search(r"\b(?:anything|what)\s+(?:else|more)\b", lower) and re.search(r"\b(?:fun|hobby|hobbies|interest|interests?)\b", lower):
+        return "What else does James do for fun?"
 
     if re.search(r"\b(?:what\s+(?:did|has)|tell\s+me\s+what)\s+(?:james|he)\s+(?:write|wrote|written)\b", lower):
         return "What essays has James written?"
@@ -191,6 +196,8 @@ def build_query_plan(question: str) -> QueryPlan:
         retrieval_query = "Self-taught Python during middle school programming"
     elif "gaming_reason" in intent.entities:
         retrieval_query = "gaming unwind decompress after school friends peers social connection"
+    elif "additional_hobbies" in intent.entities:
+        retrieval_query = "cosplay 3D printer founding clubs tactile picture books"
 
     rewritten = normalized != original or retrieval_query != normalized
     confidence = 0.96 if rewritten else (0.82 if intent.kind != "unknown" else 0.20)

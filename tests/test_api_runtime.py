@@ -55,6 +55,24 @@ def test_api_returns_contextual_followups_and_typo_interpretation():
         assert "What model powers this chat?" in meta_body["suggested_questions"]
 
 
+def test_api_resolves_anything_else_using_the_previous_hobby_topic():
+    with TestClient(app, base_url="http://localhost") as client:
+        session_id = "anything-else-test"
+        first = client.post(
+            "/api/chat",
+            json={"question": "What does James do for fun?", "session_id": session_id},
+        )
+        second = client.post(
+            "/api/chat",
+            json={"question": "anything else?", "session_id": session_id},
+        )
+        assert first.json()["status"] == "answered"
+        assert "electric guitar" in first.json()["answer"].lower()
+        assert second.json()["status"] == "answered"
+        assert "cosplay" in second.json()["answer"].lower()
+        assert "3d printer" in second.json()["answer"].lower()
+
+
 def test_api_can_disable_planner_without_changing_legacy_answer_path(monkeypatch):
     monkeypatch.setattr(config, "QUERY_PLANNER_ENABLED", False)
     with TestClient(app, base_url="http://localhost") as client:

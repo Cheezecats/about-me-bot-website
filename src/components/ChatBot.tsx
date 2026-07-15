@@ -105,6 +105,7 @@ function renderAssistantContent(content: string) {
 }
 
 const API_URL = import.meta.env.VITE_CHAT_API_URL || "/api/chat";
+const CHATBOT_NAME = "JamChat";
 
 const STARTER_QUESTIONS = [
   { icon: "🎮", label: "Favorite games", question: "What is James's favorite game?" },
@@ -325,7 +326,7 @@ export default function ChatBot() {
                     ✦
                   </motion.span>
                   <div>
-                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Ask James</h3>
+                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{CHATBOT_NAME}</h3>
                     <motion.span
                       key={status === "loading" ? "thinking" : "ready"}
                       initial={{ opacity: 0, y: 4 }}
@@ -377,7 +378,7 @@ export default function ChatBot() {
                 >
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-500">About this chat</p>
-                    <h4 className="mt-1 text-lg font-semibold text-neutral-900 dark:text-white">How Ask James works</h4>
+                    <h4 className="mt-1 text-lg font-semibold text-neutral-900 dark:text-white">How {CHATBOT_NAME} works</h4>
                     <p className="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
                       A small interpretation layer turns informal questions into a precise search, then the answer is grounded in James's curated profile.
                     </p>

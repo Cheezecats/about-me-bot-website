@@ -1,8 +1,8 @@
-# Codex Context: Ask James Chatbot
+# Codex Context: JamChat
 
 ## Project goal
 
-This is James Sui's personal website with an “Ask James” chatbot. The chatbot should answer questions about James using only the project's knowledge base and refuse private or unsupported questions.
+This is James Sui's personal website with a “JamChat” chatbot. The chatbot should answer questions about James using only the project's knowledge base and refuse private or unsupported questions.
 
 ## Current deployment decision
 

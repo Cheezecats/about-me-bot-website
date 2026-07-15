@@ -108,7 +108,7 @@ def evaluate(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate the live Ask James API through HTTP.")
+    parser = argparse.ArgumentParser(description="Evaluate the live JamChat API through HTTP.")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/api/chat")
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--repeats", type=int, default=1)

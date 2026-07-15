@@ -1,4 +1,4 @@
-# Ask James Chatbot Architecture
+# JamChat Architecture
 
 The live chatbot is intentionally local-first:
 

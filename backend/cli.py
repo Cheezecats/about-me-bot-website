@@ -15,8 +15,8 @@ def _load_index() -> BM25Index:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ask James - standalone CLI chatbot")
-    parser.add_argument("question", nargs="?", help="Question to ask James")
+    parser = argparse.ArgumentParser(description=f"{config.CHATBOT_NAME} - standalone CLI chatbot")
+    parser.add_argument("question", nargs="?", help="Question to send to JamChat")
     args = parser.parse_args()
 
     question = args.question
