@@ -131,6 +131,7 @@ def retrieve(
     project_query = bool(query_terms & {"project", "projects", "built", "created", "developed"})
     achievement_query = bool(query_terms & {"award", "awards", "achievement", "achievements", "won"})
     travel_query = bool(query_terms & {"travel", "traveled", "travelled", "visited", "visit", "country", "countries", "training", "train", "abroad"})
+    favorite_query = bool(query_terms & {"favorite", "favourite", "anime", "movie", "movies", "film", "films", "book", "books", "series", "place", "subject", "subjects", "ide", "editor", "editors"})
     specific_achievement_terms = query_terms & {
         "physics", "bowl", "curieux", "lumiere", "qiu", "china", "thinks", "big"
     }
@@ -163,6 +164,12 @@ def retrieve(
             summary_bonus += 12.0
         if project_query and c.get("metadata", {}).get("title") in {"Projects & Skills", "Programming languages"}:
             summary_bonus += 8.0
+        if favorite_query and c.get("metadata", {}).get("title") in {
+            "Favorite anime", "Favorite movie", "Favorite book series", "Favorite place",
+            "Favorite school subject", "Favorite games", "Favorite music", "Favorite food",
+            "Favorite season", "IDE/editor usage",
+        }:
+            summary_bonus += 10.0
         results.append({**c, "score": round(score + heading_bonus + summary_bonus, 4)})
     results.sort(key=lambda c: c["score"], reverse=True)
     return results[:k]

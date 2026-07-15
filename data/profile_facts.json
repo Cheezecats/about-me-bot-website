@@ -4,6 +4,12 @@
     "favorite_food": ["kb_extra/favorites.md", "kb_extra/hobbies.md"],
     "favorite_season": ["kb_extra/favorites.md"],
     "favorite_music": ["kb_extra/favorites.md"],
+    "favorite_anime": ["kb_extra/favorites.md", "kb_extra/gaming.md"],
+    "favorite_movie": ["kb_extra/favorites.md"],
+    "favorite_book_series": ["kb_extra/favorites.md"],
+    "favorite_place": ["kb_extra/favorites.md", "kb_extra/travel.md"],
+    "favorite_school_subject": ["kb_extra/favorites.md"],
+    "ide_editors": ["kb_extra/favorites.md"],
     "hobbies": ["kb_extra/hobbies.md"],
     "guitar": ["kb_extra/hobbies.md"],
     "photography": ["kb_extra/hobbies.md"],
@@ -43,6 +49,22 @@
     "bands": ["Yorushika", "Hitorie"],
     "genres": ["J-pop", "rock"]
   },
+  "favorite_anime": {
+    "top": ["Bang Dream Mygo", "Clannad", "Jojo's Bizarre Adventure (all parts)"],
+    "also_loves": ["K-ON"]
+  },
+  "favorite_movie": {
+    "hollywood": "Jurassic Park",
+    "non_hollywood": "君の名は (Your Name)"
+  },
+  "favorite_book_series": {
+    "title": "Percy Jackson series",
+    "author": "Rick Riordan",
+    "detail": "James read it as a kid and still remembers it fondly."
+  },
+  "favorite_place": "Japan, especially Tokyo",
+  "favorite_school_subject": "Physics (as of now)",
+  "ide_editors": ["Claude", "Codex", "TRAE", "WorkBuddy", "VS Code", "Zed"],
   "apex_rank": {
     "game": "Apex Legends",
     "rank": "Diamond 2",

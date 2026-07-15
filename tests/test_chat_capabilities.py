@@ -50,6 +50,8 @@ def test_structured_capabilities_answer_without_llm():
         for term in row["terms"]:
             if term.lower() not in result["answer"].lower():
                 failures.append(f"{row['question']}: missing {term!r}")
+        if "## " in result["answer"] or "provided context" in result["answer"].lower():
+            failures.append(f"{row['question']}: answer leaked raw heading/context wording")
     assert not failures, "\n".join(failures)
 
 
@@ -179,6 +181,50 @@ def test_query_planner_handles_new_informal_phrasing_without_guessing():
         )
         assert result["status"] == "answered", question
         assert expected.lower() in result["answer"].lower(), question
+
+
+def test_favorite_topics_use_consistent_structured_formatting():
+    chunks, index = _runtime()
+    cases = [
+        ("favorite anime", "Favorite anime", "Bang Dream Mygo"),
+        ("anime", "Favorite anime", "K-ON"),
+        ("favoriate movie", "Favorite movie", "Jurassic Park"),
+        ("favorite movie", "Favorite movie", "君の名は"),
+        ("What is James's favorite book series?", "Favorite book series", "Percy Jackson"),
+        ("What is James's favorite place?", "Favorite place", "Tokyo"),
+        ("What is James's favorite school subject?", "Favorite school subject", "Physics"),
+        ("Which IDEs and editors does James use?", "IDE/editor usage", "VS Code"),
+    ]
+    for question, expected_title, expected_term in cases:
+        plan = build_query_plan(question)
+        retrieved = retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K)
+        result = answer_or_refuse(
+            question,
+            retrieved,
+            enforce_confidence_threshold=False,
+            intent_question=plan.normalized_question,
+        )
+        assert result["status"] == "answered", question
+        assert retrieved[0]["metadata"]["title"] == expected_title, question
+        assert expected_term.lower() in result["answer"].lower(), question
+        assert "## " not in result["answer"], question
+
+
+def test_short_topic_queries_do_not_return_secondary_raw_chunks():
+    chunks, index = _runtime()
+    for question, expected in [("anime", "favorite anime"), ("movie", "favorite movie")]:
+        plan = build_query_plan(question)
+        assert plan.normalized_question.lower() == f"what is james's {expected}?"
+        retrieved = retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K)
+        result = answer_or_refuse(
+            question,
+            retrieved,
+            enforce_confidence_threshold=False,
+            intent_question=plan.normalized_question,
+        )
+        assert result["status"] == "answered"
+        assert "top 3:" not in result["answer"].lower()
+        assert "## " not in result["answer"]
 
 
 def test_public_chat_excludes_flappy_bird_from_projects_and_retrieval():
