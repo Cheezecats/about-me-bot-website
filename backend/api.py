@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +21,7 @@ from backend.generation.answer import (
 from backend.generation.conversation import ConversationState, ConversationStore
 from backend.generation.intent import QueryIntent, detect_intent
 from backend.generation.query_plan import build_query_plan
+from backend.generation.suggestions import build_follow_up_questions
 from backend.reranker.inference import Reranker, RerankerUnavailable
 from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build, retrieve
 
@@ -133,6 +135,8 @@ class ChatResponse(BaseModel):
     normalized_query: str = ""
     planner_used: bool = False
     planner_confidence: float = 0.0
+    suggested_questions: list[str] = []
+    normalization_applied: bool = False
 
 
 @app.get("/api/health")
@@ -180,6 +184,7 @@ async def chat(request: ChatRequest, http_request: Request):
     normalized_queries: list[str] = []
     planner_confidences: list[float] = []
     clause_intents: list[QueryIntent] = []
+    normalization_applied = False
     history = state.build_history_messages() if state is not None else None
     questions = split_compound_question(question)
     clause_results: list[dict] = []
@@ -192,6 +197,9 @@ async def chat(request: ChatRequest, http_request: Request):
                 query = plan.retrieval_query
                 semantic_question = plan.normalized_question
                 normalized_queries.append(plan.normalized_question)
+                normalization_applied = normalization_applied or _semantic_query_changed(
+                    clause, plan.normalized_question
+                )
                 planner_confidences.append(plan.confidence)
                 clause_intents.append(plan.intent)
             else:
@@ -231,6 +239,7 @@ async def chat(request: ChatRequest, http_request: Request):
             normalized_query=" | ".join(normalized_queries),
             planner_used=False,
             planner_confidence=0.0,
+            normalization_applied=normalization_applied,
         )
         return JSONResponse(status_code=503, content=unavailable.model_dump())
 
@@ -257,9 +266,10 @@ async def chat(request: ChatRequest, http_request: Request):
     ]
     retrieval_score = float(result.get("confidence", 0.0)) if sources else 0.0
     retrieval_method = "reranker" if reranker is not None else ("bm25" if sources else "none")
+    last_intent = clause_intents[-1] if clause_intents else None
+    suggested_questions = build_follow_up_questions(last_intent, status)
 
     if state is not None and status == "answered":
-        last_intent = clause_intents[-1] if clause_intents else None
         topic = (last_intent.topic if last_intent else None) or (sources[0].category if sources else "unknown")
         entities = last_intent.entities if last_intent else ()
         state.record(question, result["answer"], topic, entities=entities)
@@ -278,7 +288,18 @@ async def chat(request: ChatRequest, http_request: Request):
         normalized_query=result["normalized_query"],
         planner_used=result["planner_used"],
         planner_confidence=result["planner_confidence"],
+        suggested_questions=suggested_questions,
+        normalization_applied=normalization_applied,
     )
+
+
+def _semantic_query_changed(original: str, normalized: str) -> bool:
+    """Ignore punctuation-only cleanup when reporting an interpretation hint."""
+
+    def comparable(value: str) -> str:
+        return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", value.lower()).strip()
+
+    return comparable(original) != comparable(normalized)
 
 
 def _safe_file_response(directory: Path, filename: str) -> FileResponse:

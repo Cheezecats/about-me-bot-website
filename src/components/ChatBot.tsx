@@ -19,6 +19,9 @@ interface ChatResponse {
   sources: ChatSource[];
   fallback_used: boolean;
   reason?: string;
+  suggested_questions?: string[];
+  normalized_query?: string;
+  normalization_applied?: boolean;
 }
 
 interface Message {
@@ -26,6 +29,28 @@ interface Message {
   content: string;
   status?: ChatStatus;
   sources?: ChatSource[];
+  suggestedQuestions?: string[];
+  normalizedQuery?: string;
+  normalizationApplied?: boolean;
+  retryQuestion?: string;
+}
+
+interface PanelSize {
+  width: number;
+  height: number;
+}
+
+const DEFAULT_PANEL_SIZE: PanelSize = { width: 352, height: 512 };
+const PANEL_SIZE_KEY = "ask-james-chat-size";
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function createSessionId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `session-${Date.now()}`;
 }
 
 function renderAssistantContent(content: string) {
@@ -93,19 +118,76 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<ChatStatus>("idle");
+  const [showAbout, setShowAbout] = useState(false);
+  const [panelSize, setPanelSize] = useState<PanelSize>(() => {
+    if (typeof window === "undefined") return DEFAULT_PANEL_SIZE;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(PANEL_SIZE_KEY) || "null") as Partial<PanelSize> | null;
+      if (!saved || typeof saved.width !== "number" || typeof saved.height !== "number") return DEFAULT_PANEL_SIZE;
+      return {
+        width: clamp(saved.width, 300, 560),
+        height: clamp(saved.height, 400, 760),
+      };
+    } catch {
+      return DEFAULT_PANEL_SIZE;
+    }
+  });
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sessionIdRef = useRef(
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `session-${Date.now()}`,
-  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const sessionIdRef = useRef(createSessionId());
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    window.localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(panelSize));
+  }, [panelSize]);
+
+  useEffect(() => {
+    if (!open) return;
+    const focusInput = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusInput);
+  }, [open]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  const resetChat = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setStatus("idle");
+    setShowAbout(false);
+    sessionIdRef.current = createSessionId();
+  }, []);
+
+  const beginResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (window.matchMedia("(max-width: 639px)").matches) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startSize = panelSize;
+    const onMove = (moveEvent: PointerEvent) => {
+      setPanelSize({
+        width: clamp(startSize.width + startX - moveEvent.clientX, 300, 560),
+        height: clamp(startSize.height + startY - moveEvent.clientY, 400, 760),
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [panelSize]);
 
   const send = useCallback(async (presetQuestion?: string) => {
     const question = (presetQuestion ?? input).trim();
@@ -140,6 +222,9 @@ export default function ChatBot() {
         content: data.answer,
         status: data.status as ChatStatus,
         sources: data.sources,
+        suggestedQuestions: data.suggested_questions ?? [],
+        normalizedQuery: data.normalized_query,
+        normalizationApplied: data.normalization_applied,
       };
       setMessages((prev) => [...prev, assistantMsg]);
       setStatus(
@@ -158,6 +243,7 @@ export default function ChatBot() {
         role: "assistant",
         content: "Sorry, I couldn't reach the server. Please try again later.",
         status: "error",
+        retryQuestion: question,
       };
       if (error instanceof Error && error.message !== "") {
         errorMsg.content = error.message;
@@ -213,7 +299,11 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 24, scale: 0.9, filter: "blur(6px)" }}
             transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 340, damping: 28, mass: 0.72 }}
-            className="fixed bottom-24 right-4 z-50 flex h-[min(32rem,calc(100vh-8rem))] w-[calc(100vw-2rem)] max-w-[22rem] flex-col overflow-hidden rounded-3xl border border-neutral-200/80 bg-white/95 shadow-2xl shadow-neutral-900/20 backdrop-blur-xl dark:border-neutral-700/80 dark:bg-neutral-900/95"
+            style={{
+              width: `min(calc(100vw - 2rem), ${panelSize.width}px)`,
+              height: `min(calc(100vh - 8rem), ${panelSize.height}px)`,
+            }}
+            className="fixed bottom-24 right-4 z-50 flex max-h-[calc(100vh-8rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-neutral-200/80 bg-white/95 shadow-2xl shadow-neutral-900/20 backdrop-blur-xl dark:border-neutral-700/80 dark:bg-neutral-900/95"
           >
             <div className="relative overflow-hidden border-b border-neutral-200/80 px-4 py-3 dark:border-neutral-700/80">
               {!reduceMotion && (
@@ -246,18 +336,77 @@ export default function ChatBot() {
                     </motion.span>
                   </div>
                 </div>
-                <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-                  <motion.span
-                    className={`h-1.5 w-1.5 rounded-full ${status === "loading" ? "bg-violet-500" : "bg-emerald-500"}`}
-                    animate={status === "loading" && !reduceMotion ? { scale: [1, 1.5, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 1 }}
-                    transition={{ duration: 1, repeat: status === "loading" && !reduceMotion ? Infinity : 0 }}
-                  />
-                  {status === "loading" ? "working" : "online"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                    <motion.span
+                      className={`h-1.5 w-1.5 rounded-full ${status === "loading" ? "bg-violet-500" : "bg-emerald-500"}`}
+                      animate={status === "loading" && !reduceMotion ? { scale: [1, 1.5, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 1 }}
+                      transition={{ duration: 1, repeat: status === "loading" && !reduceMotion ? Infinity : 0 }}
+                    />
+                    {status === "loading" ? "working" : "online"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAbout((visible) => !visible)}
+                    aria-label={showAbout ? "Close chat information" : "About this chat"}
+                    title="About this chat"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-sm text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                  >
+                    ⓘ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetChat}
+                    aria-label="Start a new chat"
+                    title="New chat"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-base text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                  >
+                    ↺
+                  </button>
+                </div>
               </div>
             </div>
 
             <div ref={scrollRef} aria-live="polite" className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              {showAbout ? (
+                <motion.div
+                  key="about-chat"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="space-y-4 pt-1"
+                >
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-500">About this chat</p>
+                    <h4 className="mt-1 text-lg font-semibold text-neutral-900 dark:text-white">How Ask James works</h4>
+                    <p className="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
+                      A small interpretation layer turns informal questions into a precise search, then the answer is grounded in James's curated profile.
+                    </p>
+                  </div>
+                  <div className="space-y-2 text-xs text-neutral-700 dark:text-neutral-200">
+                    {[
+                      ["Model", "Qwen2.5 3B running locally through Ollama"],
+                      ["Pipeline", "React/Vite → FastAPI → query planner → BM25 retrieval → grounded answer"],
+                      ["Sources", "Curated profile files and indexed knowledge-base chunks"],
+                      ["Memory", "Short-lived in-memory session for follow-up questions"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-neutral-700 dark:bg-neutral-800/70">
+                        <span className="font-semibold text-neutral-900 dark:text-white">{label}</span>
+                        <span className="mt-0.5 block leading-relaxed text-neutral-500 dark:text-neutral-400">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                    It does not browse the web or invent private facts. If the public profile has no evidence, it says so instead of guessing.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAbout(false)}
+                    className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    Back to conversation
+                  </button>
+                </motion.div>
+              ) : <>
               <AnimatePresence initial={false}>
                 {messages.length === 0 && status !== "loading" && (
                   <motion.div
@@ -326,6 +475,11 @@ export default function ChatBot() {
                         : "bg-neutral-100 text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100"
                     }`}
                   >
+                    {msg.role === "assistant" && msg.normalizationApplied && msg.normalizedQuery && (
+                      <p className="mb-2 border-b border-neutral-200/70 pb-2 text-[10px] text-neutral-500 dark:border-neutral-700/70 dark:text-neutral-400">
+                        Interpreted as: {msg.normalizedQuery}
+                      </p>
+                    )}
                     {msg.role === "assistant" ? renderAssistantContent(msg.content) : (
                       <span className="whitespace-pre-line">{msg.content}</span>
                     )}
@@ -341,6 +495,34 @@ export default function ChatBot() {
                           ))}
                         </ul>
                       </details>
+                    )}
+                    {msg.role === "assistant" && i === messages.length - 1 && msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && msg.status === "answered" && (
+                      <div className="mt-3 border-t border-neutral-200/70 pt-2 dark:border-neutral-700/70">
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Continue with</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {msg.suggestedQuestions.map((question) => (
+                            <motion.button
+                              key={question}
+                              type="button"
+                              onClick={() => void send(question)}
+                              whileHover={reduceMotion ? undefined : { y: -1 }}
+                              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+                              className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-left text-[10px] font-medium leading-snug text-violet-800 transition-colors hover:border-violet-400 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/50 dark:text-violet-200 dark:hover:border-violet-600"
+                            >
+                              {question}
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {msg.role === "assistant" && msg.retryQuestion && (msg.status === "error" || msg.status === "unavailable") && (
+                      <button
+                        type="button"
+                        onClick={() => void send(msg.retryQuestion)}
+                        className="mt-2 rounded-full border border-current px-3 py-1 text-xs font-medium transition-opacity hover:opacity-70"
+                      >
+                        Retry
+                      </button>
                     )}
                   </div>
                 </motion.div>
@@ -378,11 +560,13 @@ export default function ChatBot() {
                   </div>
                 </motion.div>
               )}
+              </>}
             </div>
 
             <div className="border-t border-neutral-200/80 bg-white/70 p-3 dark:border-neutral-700/80 dark:bg-neutral-900/70">
               <div className="flex gap-2">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -401,6 +585,16 @@ export default function ChatBot() {
                   Send
                 </motion.button>
               </div>
+            </div>
+            <div
+              role="separator"
+              aria-label="Resize chat window"
+              aria-orientation="horizontal"
+              onPointerDown={beginResize}
+              title="Drag to resize"
+              className="absolute bottom-1 left-1 hidden h-5 w-5 cursor-nwse-resize items-end justify-start text-neutral-400 sm:flex"
+            >
+              <span aria-hidden="true" className="mb-0.5 ml-0.5 text-xs">◢</span>
             </div>
           </motion.div>
         )}

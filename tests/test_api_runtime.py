@@ -39,6 +39,22 @@ def test_api_uses_planner_and_exposes_rollback_diagnostics():
         assert "diamond 2" in body["answer"].lower()
 
 
+def test_api_returns_contextual_followups_and_typo_interpretation():
+    with TestClient(app, base_url="http://localhost") as client:
+        response = client.post("/api/chat", json={"question": "james hobies"})
+        body = response.json()
+        assert response.status_code == 200
+        assert body["status"] == "answered"
+        assert body["normalization_applied"] is True
+        assert "hobbies" in body["normalized_query"].lower()
+        assert "What sports does James play?" in body["suggested_questions"]
+
+        meta_response = client.post("/api/chat", json={"question": "how does this chat work"})
+        meta_body = meta_response.json()
+        assert meta_body["status"] == "answered"
+        assert "What model powers this chat?" in meta_body["suggested_questions"]
+
+
 def test_api_can_disable_planner_without_changing_legacy_answer_path(monkeypatch):
     monkeypatch.setattr(config, "QUERY_PLANNER_ENABLED", False)
     with TestClient(app, base_url="http://localhost") as client:
