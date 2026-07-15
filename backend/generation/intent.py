@@ -98,7 +98,9 @@ def detect_intent(question: str) -> QueryIntent:
     if re.search(r"\bfavorite\s+(?:programming\s+)?language\b", lower):
         return QueryIntent("unsupported", topic="projects")
 
-    if re.search(r"\b(?:dislike|dislikes|disliked|least favorite|hate|hates)\b", lower):
+    if re.search(r"\b(?:school|academic|class(?:room)?)\s+projects?\b", lower):
+        topic = "projects"
+    elif re.search(r"\b(?:dislike|dislikes|disliked|least favorite|hate|hates)\b", lower):
         topic = "preferences"
     elif re.search(r"\b(?:train|training|competed|competition)\b", lower) and re.search(r"\bhockey\b", lower):
         topic = "travel"

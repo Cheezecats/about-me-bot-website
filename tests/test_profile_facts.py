@@ -32,6 +32,7 @@ def test_profile_facts_has_required_public_sections():
     assert facts["sports"]
     assert facts["projects"]
     assert facts["achievements"]
+    assert all("flappy" not in project["name"].lower() for project in facts["projects"])
 
 
 def test_profile_facts_do_not_contain_private_field_names_or_pii():

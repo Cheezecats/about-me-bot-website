@@ -108,7 +108,18 @@ class BM25Index:
 
 def load_chunks(path: Path | None = None) -> list[dict]:
     path = path or config.CHUNKS_PATH
-    return json.loads(path.read_text(encoding="utf-8"))
+    chunks = json.loads(path.read_text(encoding="utf-8"))
+    public_chunks: list[dict] = []
+    for chunk in chunks:
+        if chunk.get("chunk_id") in config.HIDDEN_CHAT_CHUNK_IDS:
+            continue
+        # The public project summary is a curated list, so remove details
+        # James has excluded from JamChat even when an older generated corpus
+        # is still present on disk.
+        if chunk.get("chunk_id") == "projects_skills_projects_skills_000":
+            chunk = {**chunk, "text": chunk["text"].replace(", and a Flappy Bird game.", ".")}
+        public_chunks.append(chunk)
+    return public_chunks
 
 
 def retrieve(

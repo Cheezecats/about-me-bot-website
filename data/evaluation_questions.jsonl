@@ -13,7 +13,9 @@
 {"question":"Which sport did James start first?","mode":"structured","title":"Sports","terms":["skiing first","2013"]}
 {"question":"Which countries did James visit?","mode":"structured","title":"Travel","terms":["Japan","Greece","Italy","Xinjiang"]}
 {"question":"Where did James train for hockey?","mode":"structured","title":"Travel","terms":["United States","Russia"]}
-{"question":"What projects has James built?","mode":"structured","title":"Projects & Skills","terms":["personal website","FFT guitar tuner","Flappy Bird"]}
+{"question":"What projects has James built?","mode":"structured","title":"Projects & Skills","terms":["personal website","FFT guitar tuner","FTC robotics project"]}
+{"question":"What are his cameras?","mode":"structured","title":"Photography and videography","terms":["Nikon Z8","iPhone 13 Pro"]}
+{"question":"What school projects has James built?","mode":"structured","title":"Projects & Skills","terms":["FTC robotics project","FFT guitar tuner"]}
 {"question":"What projects involve AI?","mode":"structured","title":"Projects & Skills","terms":["Flutter medical recovery platform","LLM hallucination evaluator","Histology classifier benchmark"]}
 {"question":"What programming languages does James use?","mode":"structured","title":"Programming languages","terms":["Python","TypeScript","Solidity"]}
 {"question":"What essays has James written?","mode":"structured","title":"Writing & Essays","terms":["LLM hallucination research paper","Extended Essay on Uniswap V3"]}
