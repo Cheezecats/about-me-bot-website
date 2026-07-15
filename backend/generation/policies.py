@@ -148,7 +148,7 @@ def product_meta_answer(question: str) -> str:
         "and a grounding prompt. The repository contains experimental training code for a reranker, but that reranker is not in the live path."
     )
     limits_answer = (
-        "Ask James is designed for James's public profile—not general web search. It can answer about his hobbies, games, sports, photography, "
+        f"{config.CHATBOT_NAME} is designed for James's public profile—not general web search. It can answer about his hobbies, games, sports, photography, "
         "projects, essays, travel, education, and achievements. It may refuse when the knowledge base lacks evidence, when a request is private, "
         "or when the local model is unavailable."
     )
@@ -180,7 +180,7 @@ def product_meta_answer(question: str) -> str:
     if sections:
         return "\n\n".join(sections)
     return (
-        "I'm Ask James, a local RAG chatbot for questions about James's photography, videos, essays, hobbies, sports, projects, and favorites. "
+        f"I'm {config.CHATBOT_NAME}, a local RAG chatbot for questions about James's photography, videos, essays, hobbies, sports, projects, and favorites. "
         "You can also ask how the architecture, model, sources, memory, or privacy controls work."
     )
 

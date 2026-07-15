@@ -1,6 +1,6 @@
-# Deployment Guide — Ask James
+# Deployment Guide — JamChat
 
-This guide covers deploying the full **Ask James** RAG chatbot stack: the FastAPI
+This guide covers deploying the full **JamChat** RAG chatbot stack: the FastAPI
 backend, the React frontend, an optional validated cross-encoder reranker, and the Cloudflare
 Tunnel that exposes the local Mac mini to the public internet.
 

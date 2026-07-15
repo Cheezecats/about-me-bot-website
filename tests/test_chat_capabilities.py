@@ -179,6 +179,45 @@ def test_query_planner_handles_new_informal_phrasing_without_guessing():
         assert expected.lower() in result["answer"].lower(), question
 
 
+def test_contextual_anything_else_returns_additional_hobby_evidence():
+    from backend.generation.conversation import ConversationState
+
+    chunks, index = _runtime()
+    state = ConversationState()
+    first = "What does James do for fun?"
+    first_plan = build_query_plan(first)
+    first_result = answer_or_refuse(
+        first,
+        retrieve(first_plan.retrieval_query, index, chunks, k=config.TOP_K),
+        enforce_confidence_threshold=False,
+        intent_question=first_plan.normalized_question,
+    )
+    state.record(first, first_result["answer"], first_plan.intent.topic or "hobbies", first_plan.intent.entities)
+
+    followup = "anything else?"
+    resolved = state.augment_query(followup)
+    plan = build_query_plan(resolved)
+    assert plan.normalized_question == "What else does James do for fun?"
+    assert "additional_hobbies" in plan.intent.entities
+    retrieved = retrieve(plan.retrieval_query, index, chunks, k=config.TOP_K)
+    result = answer_or_refuse(
+        followup,
+        retrieved,
+        enforce_confidence_threshold=False,
+        intent_question=plan.normalized_question,
+    )
+    assert result["status"] == "answered"
+    assert "cosplay" in result["answer"].lower()
+    assert "3d printer" in result["answer"].lower()
+    assert len(result["sources"]) == 4
+
+
+def test_anything_else_does_not_turn_a_different_topic_into_hobbies():
+    plan = build_query_plan("photography camera lens anything else")
+    assert plan.intent.topic == "photography"
+    assert "additional_hobbies" not in plan.intent.entities
+
+
 def test_ia_entities_and_apex_season_followup_use_focused_answers():
     chunks, index = _runtime()
     for question, expected in [

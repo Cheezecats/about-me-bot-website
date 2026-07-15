@@ -37,7 +37,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
 
 _FOLLOWUP_PATTERN = re.compile(
     r"\b(?:what about|tell me more|when did (?:he|james) start|where was that|which one|the first|the second|the third)\b"
-    r"|\b(?:his|her|their|that|this|those|these)\b",
+    r"|\b(?:anything else|what else|anything more|his|her|their|that|this|those|these)\b",
     re.IGNORECASE,
 )
 
@@ -85,6 +85,10 @@ def detect_intent(question: str) -> QueryIntent:
     )
     before_match = re.search(r"\bbefore\s+(20\d{2})\b", lower)
     followup = bool(_FOLLOWUP_PATTERN.search(question))
+    additional_hobby_request = bool(
+        re.search(r"\b(?:anything|what)\s+(?:else|more)\b|\b(?:other|additional)\s+(?:hobbies|things|interests?)\b", lower)
+        and re.search(r"\b(?:fun|hobbies?|interests?|pastimes?)\b", lower)
+    )
     entities = tuple(
         entity
         for entity in (
@@ -100,6 +104,7 @@ def detect_intent(question: str) -> QueryIntent:
             "band" if re.search(r"\bbands?\b", lower) else None,
             "artist" if re.search(r"\bartists?\b", lower) else None,
             "dislikes" if re.search(r"\b(?:dislike|dislikes|disliked|least favorite|hate|hates)\b", lower) else None,
+            "additional_hobbies" if additional_hobby_request else None,
             "gaming_reason" if re.search(r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower) and re.search(r"\b(?:game|games|gaming|apex|valorant|csgo)\b", lower) else None,
             "coding_origin" if re.search(r"\b(?:learn|learned|self-taught|taught|started)\b", lower) and re.search(r"\b(?:code|coding|programming|python|software)\b", lower) else None,
             "apex_rank" if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\brank\b", lower) else None,

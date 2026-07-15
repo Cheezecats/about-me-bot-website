@@ -163,6 +163,27 @@ def _body_without_heading(chunk: dict) -> str:
     return extractive_answer(chunk).strip()
 
 
+def _format_additional_hobbies(chunks: list[dict]) -> str | None:
+    """Summarize less-central interests for contextual questions like 'what else?'"""
+
+    by_id = {chunk.get("chunk_id"): chunk for chunk in chunks}
+    required = {
+        "personality_fun_fact_cosplay_019",
+        "hobbies_3d_printer_interest_009",
+        "hobbies_founding_clubs_006",
+        "hobbies_tactile_book_project_007",
+    }
+    if not required.issubset(by_id):
+        return None
+    return (
+        "Beyond James's main hobbies, he has also mentioned:\n\n"
+        "- doing cosplay\n"
+        "- wanting a 3D printer as an extension of his 3D modeling and engineering interests\n"
+        '- co-founding the "InnoviDesign: Engineering & SolidWorks Club"\n'
+        "- participating in a tactile picture-book project for visually impaired children"
+    )
+
+
 def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent) -> str | None:
     """Answer focused entity questions from a single evidence chunk."""
 
@@ -212,9 +233,11 @@ def format_structured_answer(
         return None
     chunk = chunks[0]
     title = chunk.get("metadata", {}).get("title", "")
-    if title not in STRUCTURED_SUMMARY_TITLES:
-        return format_entity_answer(question, chunks, intent or detect_intent(question))
     intent = intent or detect_intent(question)
+    if "additional_hobbies" in intent.entities:
+        return _format_additional_hobbies(chunks)
+    if title not in STRUCTURED_SUMMARY_TITLES:
+        return format_entity_answer(question, chunks, intent)
     if not _summary_matches_intent(title, intent):
         return None
     facts = load_profile_facts()
