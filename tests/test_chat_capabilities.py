@@ -224,6 +224,10 @@ def test_common_additional_hobby_phrasings_are_normalized_consistently():
         "more hobbies",
         "tell me more",
         "and?",
+        "go on",
+        "is that all?",
+        "something else",
+        "anything to add?",
         "what does he do for fun besides that?",
         "what other things does James enjoy?",
     ]:

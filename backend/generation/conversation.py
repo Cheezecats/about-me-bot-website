@@ -26,7 +26,7 @@ _STOPWORDS = frozenset(
     "this that it he his him she her they them what when where why how james".split()
 )
 _VAGUE_FOLLOWUP_PATTERN = re.compile(
-    r"^(?:what about|tell me more|anything else|what else|anything more|and|what about it|what about that|what about this)[!.?,\s]*$",
+    r"^(?:what about|tell me more|anything else|what else|anything more|something else|anything to add|go on|continue|keep going|is that all|and|what about it|what about that|what about this)[!.?,\s]*$",
     re.IGNORECASE,
 )
 
@@ -56,7 +56,7 @@ _ENTITY_CONTEXT_TERMS = {
 
 def _is_followup(question: str) -> bool:
     tokens = set(re.findall(r"[a-z]+", question.lower()))
-    return bool(tokens & _FOLLOWUP_TOKENS)
+    return bool(tokens & _FOLLOWUP_TOKENS) or bool(_VAGUE_FOLLOWUP_PATTERN.fullmatch(question.strip()))
 
 
 def _keywords(text: str, limit: int = 3) -> list[str]:
