@@ -118,3 +118,40 @@ def test_api_preserves_entities_across_second_hop_followups():
         assert second.json()["status"] == "answered"
         assert third.json()["status"] == "answered"
         assert "nikkor" in third.json()["answer"].lower()
+
+
+def test_api_preserves_concrete_subjects_for_instrument_and_travel_followups():
+    with TestClient(app, base_url="http://localhost") as client:
+        instrument_session = "instrument-followup-regression"
+        first_instrument = client.post(
+            "/api/chat",
+            json={"question": "Does James play an instrument?", "session_id": instrument_session},
+        ).json()
+        second_instrument = client.post(
+            "/api/chat",
+            json={"question": "When did he start?", "session_id": instrument_session},
+        ).json()
+        assert first_instrument["status"] == "answered"
+        assert second_instrument["status"] == "answered"
+        assert second_instrument["normalized_query"].startswith("When did James start playing electric guitar")
+        assert second_instrument["answer"] == "James started playing electric guitar in 2025."
+
+        travel_session = "travel-followup-regression"
+        client.post(
+            "/api/chat",
+            json={"question": "Where has James travelled?", "session_id": travel_session},
+        )
+        italy = client.post(
+            "/api/chat",
+            json={"question": "What about Italy?", "session_id": travel_session},
+        ).json()
+        assert italy["status"] == "answered"
+        assert "specifically Tuscany" in italy["answer"]
+        assert "James has visited" not in italy["answer"]
+
+
+def test_api_confidence_is_bounded_and_raw_score_remains_diagnostic():
+    with TestClient(app, base_url="http://localhost") as client:
+        body = client.post("/api/chat", json={"question": "What camera does James use?"}).json()
+        assert 0.0 <= body["confidence"] <= 1.0
+        assert body["retrieval_score"] >= 0.0

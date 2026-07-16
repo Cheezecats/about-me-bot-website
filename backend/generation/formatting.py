@@ -5,6 +5,11 @@ import re
 from backend import config
 
 MIN_GROUNDING_OVERLAP = 2
+_GROUNDING_STOPWORDS = frozenset(
+    "about answer also and are as asked based been but context detail does for from have he her his "
+    "include includes information is it james not of on or profile provided that the their there this to was "
+    "what with you your".split()
+)
 NUMBER_WORDS = {
     **{
         word: value
@@ -40,11 +45,21 @@ def check_grounding(answer: str, context_chunks: list[dict]) -> bool:
     context_text = " ".join(c.get("text", "") for c in context_chunks)
     if not numbers_in(answer).issubset(numbers_in(context_text)):
         return False
-    answer_words = set(re.findall(r"[a-z]{3,}", answer.lower()))
+    answer_words = {
+        word
+        for word in re.findall(r"[a-z]{4,}", answer.lower())
+        if word not in _GROUNDING_STOPWORDS
+    }
     context_words: set[str] = set()
     for chunk in context_chunks:
-        context_words.update(re.findall(r"[a-z]{3,}", chunk.get("text", "").lower()))
-    return len(answer_words & context_words) >= MIN_GROUNDING_OVERLAP
+        context_words.update(re.findall(r"[a-z]{4,}", chunk.get("text", "").lower()))
+    if not answer_words:
+        return True
+    overlap = len(answer_words & context_words)
+    # Structured answers are handled separately. For model output, require a
+    # meaningful share of its factual vocabulary to come from the retrieved
+    # evidence, not merely two generic words.
+    return overlap >= MIN_GROUNDING_OVERLAP and overlap / len(answer_words) >= 0.55
 
 
 def build_sources(chunks: list[dict]) -> list[dict]:

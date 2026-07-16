@@ -20,6 +20,10 @@ class QueryIntent:
 
 
 _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"\b(?:who\s+is|tell\s+me\s+about|about\s+james|bio(?:graphy)?|hometown|born|live|lives|from\s+shanghai)\b", "bio"),
+    (r"\b(?:personality|person|like\s+as\s+a\s+person|values?|beliefs?|mindset|aspiration|aspirations|future\s+(?:plans?|academic\s+interests?)|academic\s+interests?)\b", "personality"),
+    (r"\b(?:contact|email|e-mail|youtube|github|bilibili|socials?|website|channel)\b", "contact"),
+    (r"\b(?:videos?|vlogs?|video\s+projects?)\b", "videos"),
     (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographs?|photo|photos?|picture|pictures?|videograph|video|film|filmed|filming|gear)\b", "photography"),
     (r"\b(?:favorite|favourite)\s+(?:game|games)\b|\b(?:game|games|gaming|apex|valorant|csgo|cyberpunk)\b", "games"),
     (r"\b(?:food|eat|eating|ramen|ice cream)\b", "food"),
@@ -28,6 +32,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b(?:hobbies|hobby|interests?|instrument|guitar|drawing|pc building|pastime|free time|fun)\b", "hobbies"),
     (r"\b(?:sports?|skiing|hockey|tennis|floorball|soccer)\b", "sports"),
     (r"\b(?:travel(?:ed|led|ing)?|visited|visit|been|went|countries|country|trip|abroad)\b", "travel"),
+    (r"\b(?:italy|tuscany|greece|athens|japan|hokkaido|xinjiang|russia|united\s+states|los\s+angeles)\b", "travel"),
     (r"\b(?:essay|essays|paper|papers|research|writing|written|wrote|write|ia|internal assessment)\b", "writing"),
     (r"\b(?:award|awards|achievement|achievements|accomplishment|accomplishments|won|victory|medal)\b", "achievements"),
     (r"\b(?:favorite|favourite)\s+(?:anime|movie|movies|film|films|book|books|series|place|subject|subjects)\b", "favorites"),
@@ -37,7 +42,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
 
 _FOLLOWUP_PATTERN = re.compile(
     r"\b(?:what about|tell me more|when did (?:he|james) start|where was that|which one|the first|the second|the third|continue|go on|keep going|is that all)\b"
-    r"|\b(?:anything else|what else|anything more|something else|anything to add|and|also|his|her|their|that|this|those|these)\b",
+    r"|\b(?:anything else|what else|anything more|something else|anything to add|and|also)\b",
     re.IGNORECASE,
 )
 
@@ -132,11 +137,18 @@ def detect_intent(question: str) -> QueryIntent:
         for entity in (
             "camera" if re.search(r"\bcameras?\b", lower) else None,
             "lens" if re.search(r"\blens(?:es)?\b", lower) else None,
+            "instrument" if re.search(r"\b(?:instrument|guitar)\b", lower) else None,
             "competitive" if "competitive" in lower else None,
             "non-competitive" if "non-competitive" in lower or "noncompetitive" in lower else None,
             "ai" if re.search(r"\b(?:ai|llm|machine learning|computer vision)\b", lower) else None,
             "programming_languages" if re.search(r"\bprogramming\s+languages?\b|\blanguages?\s+does", lower) else None,
             "visited" if re.search(r"\b(?:visit|visited|travel(?:ed|led)?)\b", lower) else None,
+            "travel_italy" if re.search(r"\b(?:italy|tuscany)\b", lower) else None,
+            "travel_greece" if re.search(r"\b(?:greece|athens)\b", lower) else None,
+            "travel_japan" if re.search(r"\b(?:japan|hokkaido)\b", lower) else None,
+            "travel_xinjiang" if re.search(r"\bxinjiang\b", lower) else None,
+            "travel_russia" if re.search(r"\brussia\b", lower) else None,
+            "travel_united_states" if re.search(r"\b(?:united\s+states|los\s+angeles)\b", lower) else None,
             "training" if re.search(r"\b(?:train|training|competed|competition)\b", lower) else None,
             "song" if re.search(r"\b(?:song|songs|track|tracks)\b", lower) else None,
             "band" if re.search(r"\bbands?\b", lower) else None,
@@ -152,6 +164,18 @@ def detect_intent(question: str) -> QueryIntent:
             "place" if re.search(r"\bplace\b", lower) else None,
             "school_subject" if re.search(r"\b(?:school\s+)?subjects?\b", lower) else None,
             "ide" if re.search(r"\b(?:ide|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower) else None,
+            "graduation" if re.search(r"\b(?:graduate|graduation|finish(?:ing)?\s+school)\b", lower) else None,
+            "higher_level_subjects" if re.search(r"\b(?:hl|higher\s+level|subjects?\s+(?:does|do)\s+(?:he|james)\s+(?:take|study))\b", lower) else None,
+            "aspirations" if re.search(r"\b(?:want(?:s)?\s+to\s+study|future\s+(?:plans?|(?:academic\s+)?interests?)|(?:academic\s+)?aspirations?)\b", lower) else None,
+            "drawing" if re.search(r"\b(?:draw|drawing|digital\s+art)\b", lower) else None,
+            "youtube" if re.search(r"\byoutube\b", lower) else None,
+            "github" if re.search(r"\bgithub\b", lower) else None,
+            "website" if re.search(r"\b(?:personal\s+)?website\b", lower) else None,
+            "public_contact" if re.search(r"\b(?:contact|email|e-mail|socials?)\b", lower) else None,
+            "publication" if re.search(r"\b(?:publish|published|publication|curieux)\b", lower) else None,
+            "anime_influence" if re.search(r"\banime\b", lower) and re.search(r"\b(?:influence|influenced|impact|style)\b", lower) else None,
+            "best_sport" if re.search(r"\b(?:best|strongest|better)\s+(?:at\s+)?sport\b|\bsport\s+is\s+(?:he|james)\s+(?:best|strongest)\b", lower) else None,
+            "video_overview" if re.search(r"\b(?:what|which|tell).*(?:videos?|vlogs?)\b", lower) else None,
         )
         if entity
     )

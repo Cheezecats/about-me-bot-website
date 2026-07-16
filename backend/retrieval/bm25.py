@@ -128,17 +128,23 @@ def retrieve(
     by_id = {c["chunk_id"]: c for c in chunks}
     results = []
     query_terms = set(tokenize_query(query))
+    raw_query_terms = set(tokenize(query))
     project_query = bool(query_terms & {"project", "projects", "built", "created", "developed"})
     achievement_query = bool(query_terms & {"award", "awards", "achievement", "achievements", "won"})
     travel_query = bool(query_terms & {"travel", "traveled", "travelled", "visited", "visit", "country", "countries", "training", "train", "abroad"})
-    favorite_query = bool(query_terms & {"favorite", "favourite", "anime", "movie", "movies", "film", "films", "book", "books", "series", "place", "subject", "subjects", "ide", "editor", "editors"})
+    # Broad query expansions such as "like" -> "favorite" must not route a
+    # personality question into a favorites summary.
+    favorite_query = bool(raw_query_terms & {"favorite", "favourite", "anime", "movie", "movies", "film", "films", "book", "books", "series", "place", "subject", "subjects", "ide", "editor", "editors"})
     specific_achievement_terms = query_terms & {
         "physics", "bowl", "curieux", "lumiere", "qiu", "china", "thinks", "big"
     }
     # Rank a sufficiently broad candidate pool before applying heading and
     # topic-summary bonuses; otherwise a summary ranked just below k can
     # never recover even when its title directly matches the query.
-    candidate_k = max(k, config.TOP_K)
+    candidate_k = max(
+        k * config.RETRIEVAL_CANDIDATE_MULTIPLIER,
+        config.TOP_K * config.RETRIEVAL_CANDIDATE_MULTIPLIER,
+    )
     for cid, score in index.search(query, candidate_k):
         c = by_id.get(cid)
         if c is None:
@@ -148,11 +154,20 @@ def retrieve(
             continue
         title_terms = set(tokenize(c.get("metadata", {}).get("title", "")))
         expanded_query_terms = set(tokenize_query(query))
-        title_match = bool(title_terms & expanded_query_terms)
+        title_overlap = len(title_terms & expanded_query_terms)
         # Prefer a chunk whose heading directly names the requested topic.
         # This resolves queries such as "favorite game" without changing the
         # BM25 index or enabling the unvalidated reranker.
-        heading_bonus = 5.0 if title_match else 0.0
+        heading_bonus = 5.0 if title_overlap >= 2 else 0.0
+        category_bonus = 0.0
+        if category == "bio" and raw_query_terms & {"bio", "biography", "hometown", "shanghai"}:
+            category_bonus = 4.0
+        elif category == "personality" and raw_query_terms & {"personality", "values", "mindset", "aspirations"}:
+            category_bonus = 4.0
+        elif category == "contact" and raw_query_terms & {"contact", "youtube", "github", "bilibili", "email", "website"}:
+            category_bonus = 4.0
+        elif category == "video" and raw_query_terms & {"video", "videos", "vlog", "vlogs"}:
+            category_bonus = 4.0
         summary_bonus = (
             12.0
             if achievement_query
@@ -170,7 +185,7 @@ def retrieve(
             "Favorite season", "IDE/editor usage",
         }:
             summary_bonus += 10.0
-        results.append({**c, "score": round(score + heading_bonus + summary_bonus, 4)})
+        results.append({**c, "score": round(score + heading_bonus + category_bonus + summary_bonus, 4)})
     results.sort(key=lambda c: c["score"], reverse=True)
     return results[:k]
 
