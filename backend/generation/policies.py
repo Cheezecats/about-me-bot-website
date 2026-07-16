@@ -55,14 +55,14 @@ PRODUCT_META_PATTERNS = [
     r"\b(?:who\s+are\s+you|what\s+are\s+you)\b",
     r"\bwhat\s+(?:can|could)\s+(?:you|this\s+(?:chat|bot|assistant))\s+(?:answer|do)\b",
     r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack)\b",
-    r"\b(?:how\s+does\s+(?:this|the)\s+(?:chat|bot|assistant)\s+work|what\s+happens\s+when\s+i\s+ask)\b",
+    r"\b(?:how\s+does\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*work|what\s+happens\s+when\s+i\s+ask)\b",
     r"\b(?:rag|retrieval[- ]augmented(?:\s+generation)?|bm25|reranker|query\s+planner)\b",
     r"\b(?:knowledge\s+base|profile\s+facts?|where\s+does\s+(?:the\s+)?(?:data|information)\s+come\s+from)\b",
     r"\bwhere\s+does\s+(?:this|the)\s+(?:chat|bot|assistant)'?s\s+(?:knowledge|data|information)\s+come\s+from\b",
     r"\b(?:source\s+attribution|source\s+labels?|why\s+(?:are|do)\s+(?:there\s+)?sources?)\b",
     r"\b(?:what|where)\s+(?:are|do)\s+(?:the\s+)?(?:sources?|citations?)\b",
     r"\b(?:conversation|chat)\s+(?:memory|history|session|sessions?)\b",
-    r"\b(?:does|can|will)\s+(?:this|the)\s+(?:chat|bot|assistant)\s+(?:remember|store|save)\b",
+    r"\b(?:does|can|will)\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*(?:remember|store|save)\b",
     r"\b(?:is|does)\s+(?:this|the\s+chat|the\s+bot)\s+(?:trained|fine[- ]tuned|fine tuned|use\s+web\s+search|use\s+the\s+internet)\b",
     r"\b(?:fine[- ]tuned|fine tuned)\b",
     r"\b(?:privacy|security|safe|stored|saved)\b.*\b(?:chat|bot|data|information|messages?)\b",
@@ -103,7 +103,7 @@ def product_meta_answer(question: str) -> str:
     wants_model = bool(re.search(r"\b(?:model|qwen|ollama|3b|llm)\b", lower))
     wants_architecture = bool(
         re.search(
-            r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack|how\s+does\s+(?:this|the)\s+(?:chat|bot|assistant)\s+work|rag|retrieval|bm25|reranker|query\s+planner)\b",
+            r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack|how\s+does\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*work|rag|retrieval|bm25|reranker|query\s+planner)\b",
             lower,
         )
     )
@@ -195,6 +195,7 @@ def apply_pii_filter(text: str) -> str:
 
 
 def normalize_refusal(text: str) -> str:
-    if _matches_any(text, REFUSAL_VARIANTS):
+    normalized = text.strip().lower()
+    if config.REFUSAL_MESSAGE.lower() in normalized or _matches_any(text, REFUSAL_VARIANTS):
         return config.REFUSAL_MESSAGE
     return text

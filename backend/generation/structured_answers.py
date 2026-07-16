@@ -174,6 +174,11 @@ def _format_ide_usage(facts: dict) -> str:
 def _format_sports(facts: dict, intent: QueryIntent, question: str) -> str:
     sports = facts["sports"]
     started = [sport for sport in sports if "started" in sport]
+    if "best_sport" in intent.entities:
+        return (
+            "James plays skiing, ice hockey, tennis, floorball, and soccer, but his public profile "
+            "does not identify one as his best sport."
+        )
     if intent.before_year is not None:
         selected = [sport for sport in started if sport["started"] < intent.before_year]
         if not selected:
@@ -222,6 +227,34 @@ def _body_without_heading(chunk: dict) -> str:
     return extractive_answer(chunk).strip()
 
 
+def _format_destination(chunks: list[dict], intent: QueryIntent) -> str | None:
+    """Turn a destination follow-up into a focused answer, not the travel index."""
+
+    destination_titles = {
+        "travel_italy": "Italy (Tuscany)",
+        "travel_greece": "Greece (Athens, Ionian Sea)",
+        "travel_japan": "Japan (Hokkaido)",
+        "travel_xinjiang": "Xinjiang, China",
+        "travel_russia": "Russia",
+        "travel_united_states": "United States (Los Angeles)",
+    }
+    for entity, title in destination_titles.items():
+        if entity not in intent.entities:
+            continue
+        chunk = next((item for item in chunks if item.get("metadata", {}).get("title") == title), None)
+        if chunk is not None:
+            answers = {
+                "travel_italy": "James travelled to Italy, specifically Tuscany, where he photographed the landscape at sunset, capturing black and orange tones.",
+                "travel_greece": "James travelled to Greece, filmed an 8K video about Athens and the Ionian Sea, and photographed the National Observatory of Athens.",
+                "travel_japan": "James travelled to Japan, specifically Hokkaido, where he filmed the 4K video “Japan Winter” and photographed snowy night scenes.",
+                "travel_xinjiang": "James filmed a video in Xinjiang in 2026 using a Nikon Z8 and an iPhone 13 Pro, then posted it on Bilibili.",
+                "travel_russia": "James competed in international ice hockey matches in Russia with local teams.",
+                "travel_united_states": "James trained in ice hockey in Los Angeles with coaches from the Los Angeles Kings.",
+            }
+            return answers[entity]
+    return None
+
+
 def _format_additional_hobbies(chunks: list[dict]) -> str | None:
     """Summarize less-central interests for contextual questions like 'what else?'"""
 
@@ -241,6 +274,107 @@ def _format_additional_hobbies(chunks: list[dict]) -> str | None:
         '- co-founding the "InnoviDesign: Engineering & SolidWorks Club"\n'
         "- participating in a tactile picture-book project for visually impaired children"
     )
+
+
+def _has_category(chunks: list[dict], category: str) -> bool:
+    return any(chunk.get("metadata", {}).get("category") == category for chunk in chunks)
+
+
+def _format_profile_answer(question: str, chunks: list[dict], intent: QueryIntent, facts: dict) -> str | None:
+    """Answer high-value public-profile fields without relying on free-form generation."""
+
+    if intent.topic == "bio" and _has_category(chunks, "bio"):
+        profile = facts["public_profile"]
+        return (
+            f"{profile['name']} is a {profile['age']}-year-old student living in {profile['location']}. "
+            f"He describes himself as a {', '.join(profile['roles'])}; his tagline is “{profile['tagline']}.”"
+        )
+    if intent.topic == "personality" and _has_category(chunks, "personality"):
+        if "aspirations" in intent.entities:
+            return (
+                "James's documented future academic interests include engineering, semiconductors and aerospace, "
+                "and quantum computing. He has applied to related programs at Purdue, the University of Michigan, and Penn."
+            )
+        return facts["personality_summary"]
+    if "instrument" in intent.entities and _has_category(chunks, "hobbies"):
+        guitar = facts["guitar"]
+        if re.search(r"\b(?:when|what year)\b", question, re.IGNORECASE) and re.search(
+            r"\b(?:start|started|begin|began)\b", question, re.IGNORECASE
+        ):
+            return f"James started playing electric guitar in {guitar['started']}."
+    if intent.topic == "contact" and _has_category(chunks, "contact"):
+        by_title = {chunk.get("metadata", {}).get("title", ""): chunk for chunk in chunks}
+        def contact_value(title: str) -> str:
+            chunk = by_title.get(title)
+            return _body_without_heading(chunk) if chunk is not None else "Not listed"
+
+        youtube = contact_value("YouTube channel")
+        github = contact_value("GitHub profile")
+        website = contact_value("Personal website")
+        email = contact_value("Public email")
+        if "youtube" in intent.entities:
+            return f"James's YouTube channel is {youtube}."
+        if "github" in intent.entities:
+            return f"James's GitHub profile is {github}."
+        if "website" in intent.entities:
+            return f"James's personal website is {website}."
+        return (
+            "James's public contact links are:\n\n"
+            f"- Email: {email}\n"
+            f"- YouTube: {youtube}\n"
+            f"- GitHub: {github}\n"
+            f"- Website: {website}"
+        )
+    if intent.topic == "videos" and _has_category(chunks, "video"):
+        videos = [chunk for chunk in chunks if chunk.get("metadata", {}).get("category") == "video"]
+        if not videos:
+            return None
+        formatted: list[str] = []
+        for chunk in videos:
+            title = chunk.get("metadata", {}).get("title", "Video")
+            body = _body_without_heading(chunk)
+            year = re.search(r"\b(20\d{2})\b", body)
+            quality = re.search(r"\b(\dK(?:60)?)\b", body, re.IGNORECASE)
+            detail = re.sub(
+                r"^James filmed a video titled ['\"]?[^.'\"]+['\"]?\s*\([^)]*\)\.\s*",
+                "",
+                body,
+                flags=re.IGNORECASE,
+            )
+            detail = re.sub(
+                r"^Filmed \d{4}, captured \dK(?:60)?(?: on the [^.]+)?\.\s*",
+                "",
+                detail,
+                flags=re.IGNORECASE,
+            ).strip()
+            detail = re.sub(r"\bmy experience\b", "James's experience", detail, flags=re.IGNORECASE)
+            label = title
+            if quality or year:
+                label += f" ({quality.group(1).upper() if quality else ''}{', ' if quality and year else ''}{year.group(1) if year else ''})"
+            formatted.append(f"{label} — {detail}")
+        return "James has made these videos:\n\n" + _bullets(formatted)
+    if "graduation" in intent.entities and _has_category(chunks, "education"):
+        return f"James is expected to graduate in {facts['education']['expected_graduation']}."
+    if "higher_level_subjects" in intent.entities and _has_category(chunks, "education"):
+        return "James's IBDP Higher Level subjects are:\n\n" + _bullets(facts["education"]["higher_level_subjects"])
+    if "drawing" in intent.entities and (_has_category(chunks, "hobbies") or _has_category(chunks, "hobby")):
+        return "Yes—James does digital drawing as a creative outlet."
+    if "publication" in intent.entities and _has_category(chunks, "achievements"):
+        return "James published a research paper on large language models in the Curieux Academic Journal."
+    if "anime_influence" in intent.entities:
+        anime_chunk = next(
+            (chunk for chunk in chunks if chunk.get("metadata", {}).get("title") == "Anime influence"),
+            None,
+        )
+        if anime_chunk is not None:
+            return (
+                "Anime has influenced James's taste in visual styles, particularly Japanese visual aesthetics. "
+                "He also enjoys watching anime in his free time."
+            )
+    destination_answer = _format_destination(chunks, intent)
+    if destination_answer is not None:
+        return destination_answer
+    return None
 
 
 def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent) -> str | None:
@@ -293,14 +427,16 @@ def format_structured_answer(
     chunk = chunks[0]
     title = chunk.get("metadata", {}).get("title", "")
     intent = intent or detect_intent(question)
+    facts = load_profile_facts()
+    profile_answer = _format_profile_answer(question, chunks, intent, facts)
+    if profile_answer is not None:
+        return profile_answer
     if "additional_hobbies" in intent.entities:
         return _format_additional_hobbies(chunks)
     if title not in STRUCTURED_SUMMARY_TITLES:
         return format_entity_answer(question, chunks, intent)
     if not _summary_matches_intent(title, intent):
         return None
-    facts = load_profile_facts()
-
     if title == "Favorite games":
         return _format_games(facts, intent)
     if title in {"Favorite anime", "Anime (top favorites)"}:
@@ -317,7 +453,7 @@ def format_structured_answer(
         return _format_ide_usage(facts)
     if title == "Favorite food":
         food = facts["favorite_food"]
-        return f"James's favorite food is {food['primary']}. He also enjoys {', '.join(food['also_enjoys'][:-1])}, and {food['also_enjoys'][-1]}."
+        return f"James's favorite food is {food['primary']}. He also enjoys {' and '.join(food['also_enjoys'])}."
     if title == "Favorite season":
         if "dislikes" in intent.entities:
             dislike = facts["dislikes"][0]
@@ -331,6 +467,12 @@ def format_structured_answer(
         return f"Yes—James plays {guitar['instrument']}. He started in {guitar['started']}, is {guitar['learning']}, and focuses on {', '.join(guitar['genres'][:-1])}, and {guitar['genres'][-1]}."
     if title == "Photography and videography":
         photography = facts["photography"]
+        if "camera" in intent.entities and "lens" in intent.entities:
+            return (
+                f"James's primary camera is a {photography['primary_camera']}; he also uses a "
+                f"{photography['additional_cameras'][0]} and an {photography['additional_cameras'][1]}. "
+                f"His lenses are a {photography['lenses'][0]} and a {photography['lenses'][1]}."
+            )
         if "lens" in intent.entities:
             return f"James uses a {photography['lenses'][0]} lens and a {photography['lenses'][1]} lens."
         if "camera" in intent.entities:

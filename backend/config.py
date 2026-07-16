@@ -45,6 +45,7 @@ MAX_REQUESTS_PER_MINUTE = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
 SESSION_TTL_SECONDS = 60 * 60
 MAX_CONVERSATIONS = 1000
 QUERY_PLANNER_ENABLED = os.getenv("QUERY_PLANNER_ENABLED", "true").lower() in {"1", "true", "yes"}
+RETRIEVAL_CANDIDATE_MULTIPLIER = 3
 
 BM25_K1 = 1.5
 BM25_B = 0.75
@@ -53,6 +54,8 @@ MAX_CHUNK_WORDS = 60
 
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
 LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_HEALTH_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_HEALTH_TIMEOUT_SECONDS", "1.5"))
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
@@ -66,13 +69,13 @@ CORS_ORIGINS = [
 
 REFUSAL_MESSAGE = (
     "That detail isn't in James's public profile, so I won't guess. I can help with "
-    "his public projects, hobbies, sports, photography, essays, achievements, "
-    "travel, or favorites."
+    "his public projects, personality, hobbies, sports, photography, videos, "
+    "essays, achievements, travel, education, or favorites."
 )
 UNAVAILABLE_MESSAGE = "I couldn't generate an answer right now. Please try again in a moment."
 CLARIFICATION_MESSAGE = (
-    "Which topic should I continue with—James's projects, hobbies, sports, photography, "
-    "essays, travel, or favorites?"
+    "Which topic would you like to continue with—James's bio, personality, projects, hobbies, "
+    "sports, photography, videos, essays, travel, education, or favorites?"
 )
 
 GROUNDING_SYSTEM_PROMPT = (

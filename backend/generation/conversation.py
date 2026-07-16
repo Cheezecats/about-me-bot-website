@@ -18,7 +18,9 @@ _EXPLICIT_TOPIC_TOKENS = frozenset(
         "games", "game", "music", "song", "guitar", "instrument", "hobbies",
         "hobby", "essays", "essay", "projects", "project", "travel", "travelled",
         "food", "season", "school", "education", "rank", "programming", "language", "languages",
-        "awards", "award", "achievements", "achievement", "anime", "movie", "book",
+        "awards", "award", "achievements", "achievement", "anime", "movie", "book", "videos", "video",
+        "youtube", "github", "bilibili", "contact", "email", "website", "personality", "bio", "drawing",
+        "graduate", "graduation", "subjects", "aspirations",
     }
 )
 _STOPWORDS = frozenset(
@@ -43,6 +45,12 @@ _TOPIC_CONTEXT_TERMS = {
     "education": ("education",),
     "food": ("food",),
     "season": ("season",),
+    "favorites": ("favorites",),
+    "bio": ("James", "bio", "Shanghai"),
+    "personality": ("personality", "values"),
+    "contact": ("contact", "YouTube", "GitHub"),
+    "videos": ("videos", "filmed"),
+    "preferences": ("preferences",),
 }
 _ENTITY_CONTEXT_TERMS = {
     "apex_rank": ("Apex Legends", "rank"),
@@ -51,6 +59,9 @@ _ENTITY_CONTEXT_TERMS = {
     "song": ("music", "songs"),
     "band": ("music", "bands"),
     "artist": ("music", "artist"),
+    "anime": ("favorite anime",),
+    "movie": ("favorite movie",),
+    "book": ("favorite book series",),
 }
 
 
@@ -89,6 +100,9 @@ class ConversationState:
         self.history: list[tuple[str, str, str]] = []
         self.last_topic: str | None = None
         self.last_entities: tuple[str, ...] = ()
+        self.last_subject: str | None = None
+        self.last_requested_detail: str | None = None
+        self.last_question: str = ""
         self.last_answer: str = ""
 
     def record(
@@ -97,13 +111,42 @@ class ConversationState:
         answer: str,
         topic: str,
         entities: tuple[str, ...] = (),
+        *,
+        normalized_question: str | None = None,
     ) -> None:
         self.history.append((question, answer, topic))
         if len(self.history) > self.max_turns:
             self.history = self.history[-self.max_turns :]
         self.last_topic = topic
         self.last_entities = tuple(entities)
+        self.last_subject = self._subject_for(topic, entities)
+        self.last_requested_detail = self._detail_for(normalized_question or question, topic, entities)
+        self.last_question = normalized_question or question
         self.last_answer = answer
+
+    @staticmethod
+    def _subject_for(topic: str, entities: tuple[str, ...]) -> str | None:
+        for entity in entities:
+            if entity in {
+                "camera", "lens", "song", "band", "artist", "anime", "movie", "book",
+                "instrument", "apex_rank", "travel_italy", "travel_greece", "travel_japan",
+                "travel_xinjiang", "travel_russia", "travel_united_states",
+            }:
+                return entity
+        return topic or None
+
+    @staticmethod
+    def _detail_for(question: str, topic: str, entities: tuple[str, ...]) -> str | None:
+        lower = question.lower()
+        if re.search(r"\b(?:when|what year|how long)\b", lower):
+            return "time"
+        if re.search(r"\b(?:where|which place|which country)\b", lower):
+            return "place"
+        if re.search(r"\b(?:why|reason|reasons)\b", lower):
+            return "reason"
+        if re.search(r"\b(?:how|method|learn|started)\b", lower):
+            return "method"
+        return topic if topic else (entities[0] if entities else None)
 
     def _context_prefix(self) -> str:
         terms: list[str] = []
@@ -114,7 +157,7 @@ class ConversationState:
         # A second-hop “which one?” needs the concrete item from the previous
         # answer, not merely the broad topic. This is deliberately limited to
         # list-like topics so it cannot leak arbitrary answer text into search.
-        if self.last_topic in {"sports", "games", "projects"}:
+        if self.last_topic in {"sports", "games", "projects", "videos", "favorites"}:
             terms.extend(_keywords(self.last_answer, limit=3))
 
         deduplicated: list[str] = []
@@ -139,6 +182,23 @@ class ConversationState:
             and re.search(r"\b(?:he|it|reach|reached)\b", lower)
         ):
             return "Apex Legends rank " + question
+
+        # Keep the concrete instrument and the requested time detail. A broad
+        # "hobbies" prefix would otherwise retrieve the hobbies index.
+        if (
+            self.last_subject == "instrument"
+            and re.search(r"\b(?:when|what year)\b", lower)
+            and re.search(r"\b(?:start|started|begin|began)\b", lower)
+        ):
+            return "When did James start playing electric guitar?"
+
+        # A named destination is already the subject of the follow-up. Keep
+        # it intact so destination-aware routing can select its own evidence.
+        if self.last_topic == "travel" and re.search(
+            r"\b(?:italy|tuscany|greece|athens|japan|hokkaido|xinjiang|russia|united\s+states|los\s+angeles)\b",
+            lower,
+        ):
+            return question
 
         question_tokens = set(re.findall(r"[a-z]+", question.lower()))
         # An explicit topic is more reliable than keywords extracted from the

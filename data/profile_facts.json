@@ -70,6 +70,14 @@
     "rank": "Diamond 2",
     "season": "Season 22"
   },
+  "public_profile": {
+    "name": "James Sui",
+    "age": 17,
+    "location": "Shanghai, China",
+    "roles": ["student", "photographer", "athlete", "technologist"],
+    "tagline": "Tech, Motion, and Perspective"
+  },
+  "personality_summary": "James describes himself as a nice, outgoing self-learner who enjoys engineering, teamwork, and exploring interests deeply. He values hard work, politeness, collaboration, and making technology more accessible.",
   "hobbies": [
     "photography and videography",
     "gaming",

@@ -57,13 +57,15 @@ _TYPO_REPLACEMENTS = {
 # minor new typos without autocorrecting names or inventing facts.
 _DOMAIN_WORDS = (
     "achievements", "achievement", "photography", "hobbies", "hobby",
-    "favorite", "favourite", "instrument", "camera", "cameras", "lenses",
+    "favorite", "favorites", "favourite", "instrument", "camera", "cameras", "lenses",
     "lens", "music", "songs", "song", "bands", "band", "artists", "artist",
     "projects", "project", "essays", "essay", "sports", "sport", "travel",
     "traveled", "visited", "rank", "games", "game", "guitar", "education",
     "school", "season", "food", "dislikes", "dislike", "anime", "movie",
     "movies", "film", "films", "book", "books", "series", "place", "subject",
     "subjects", "ide", "editor", "editors", "vscode", "zed", "workbuddy", "trae",
+    "biography", "personality", "contact", "youtube", "github", "bilibili", "videos",
+    "graduation", "graduate", "drawing", "published", "publication", "aspirations",
 )
 _NEVER_FUZZY_CORRECT = {"james", "what", "does", "do", "like", "likes", "he", "his"}
 _DOMAIN_WORD_SET = frozenset(_DOMAIN_WORDS)
@@ -95,6 +97,49 @@ def _canonical_question(question: str) -> str:
 
     if re.search(r"\b(?:ide|ides|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower):
         return "What IDE/editor tools does James use?"
+
+    if re.search(r"\b(?:tell\s+me\s+about\s+james|who\s+is\s+james|james'?s?\s+bio|about\s+james)\b", lower):
+        return "Who is James?"
+    if re.search(r"\b(?:what\s+is\s+james\s+like|james'?s?\s+personality|what\s+kind\s+of\s+person)\b", lower):
+        return "What is James like as a person?"
+    if re.search(r"\b(?:how\s+can\s+i\s+contact|contact\s+james|james'?s?\s+contact)\b", lower):
+        return "How can I contact James?"
+    if re.search(r"\b(?:youtube\s+(?:channel|account)|his\s+youtube|james'?s?\s+youtube)\b", lower):
+        return "What is James's YouTube channel?"
+    if re.search(r"\b(?:github\s+(?:profile|account)|his\s+github|james'?s?\s+github)\b", lower):
+        return "What is James's GitHub profile?"
+    if re.search(r"\b(?:what\s+videos?|which\s+videos?|videos?\s+(?:has|did)|tell\s+me\s+about.*videos?)\b", lower):
+        return "What videos has James made?"
+    if re.search(r"\b(?:when\s+(?:will|does).*graduate|graduation|graduate)\b", lower):
+        return "When will James graduate?"
+    if re.search(r"\b(?:what\s+subjects?.*(?:study|take)|(?:hl|higher\s+level)\s+subjects?)\b", lower):
+        return "What Higher Level subjects does James study?"
+    if re.search(r"\b(?:what\s+does\s+james\s+want\s+to\s+study|future\s+(?:plans?|interests?)|aspirations?)\b", lower):
+        return "What are James's future academic interests?"
+    if re.search(r"\b(?:does\s+(?:james|he)\s+draw|digital\s+drawing|drawing\s+hobby)\b", lower):
+        return "Does James do digital drawing?"
+    if re.search(r"\b(?:what\s+(?:did|has)\s+(?:james|he)\s+publish(?:ed)?|publication|curieux)\b", lower):
+        return "What has James published?"
+    if re.search(r"\banime\b", lower) and re.search(r"\b(?:influence|influenced|impact|style)\b", lower):
+        return "How has anime influenced James's visual style?"
+    if re.search(r"\b(?:best|strongest|better)\s+sport\b", lower):
+        return "What sport is James best at?"
+
+    destination_rules = (
+        (r"\b(?:italy|tuscany)\b", "What did James do in Italy?"),
+        (r"\b(?:greece|athens)\b", "What did James do in Greece?"),
+        (r"\b(?:japan|hokkaido)\b", "What did James do in Japan?"),
+        (r"\bxinjiang\b", "What did James do in Xinjiang?"),
+        (r"\brussia\b", "What did James do in Russia?"),
+        (r"\b(?:united\s+states|los\s+angeles)\b", "What did James do in the United States?"),
+    )
+    if (
+        not re.search(r"\b(?:film|filmed|filming|video|videos)\b", lower)
+        and (re.search(r"\b(?:what about|tell me about|what did|what happened|where|how)\b", lower) or len(lower.split()) <= 3)
+    ):
+        for pattern, canonical in destination_rules:
+            if re.search(pattern, lower):
+                return canonical
 
     # Minimal deterministic CJK routing for the public topics the widget
     # already supports. This avoids adding a translation dependency while
@@ -131,7 +176,7 @@ def _canonical_question(question: str) -> str:
         if re.fullmatch(rf"(?:james'?s?\s+)?(?:favorite|favourite)?\s*{pattern}", lower) or (
             re.search(pattern, lower)
             and re.search(r"\b(?:like|likes|favorite|favourite|enjoy|enjoys|love|loves|watch|watched|read|reads|reading)\b", lower)
-            and not re.search(r"\b(?:influence|influenced|impact|style|watch|watched|read|reading)\b", lower)
+            and not re.search(r"\b(?:influence|influenced|impact|style)\b", lower)
         ):
             return canonical
 
@@ -145,6 +190,11 @@ def _canonical_question(question: str) -> str:
         r"\b(?:for\s+fun|in\s+(?:his|their)\s+free\s+time)\b", lower
     ):
         return "What are James's hobbies?"
+
+    if re.search(r"\blens(?:es)?\b", lower) and re.search(r"\bcameras?\b", lower) and re.search(
+        r"\b(?:what|which|his|james|use|uses|does)\b", lower
+    ):
+        return "What camera and lenses does James use?"
 
     if not re.search(r"\blens(?:es)?\b", lower) and re.search(r"\bcameras?\b", lower) and re.search(
         r"\b(?:what|which|his|james|use|uses|does)\b", lower
@@ -226,6 +276,37 @@ def build_query_plan(question: str) -> QueryPlan:
         )
 
     retrieval_query = normalized
+    topic_queries = {
+        "bio": "James Sui 17 student Shanghai technologist",
+        "personality": "personality nice outgoing self learner engineering values",
+        "contact": "contact YouTube GitHub Bilibili website public email",
+        "videos": "videos filmed video vlog Nikon Z8",
+    }
+    retrieval_query = topic_queries.get(intent.topic or "", retrieval_query)
+    if "graduation" in intent.entities:
+        retrieval_query = "expected graduation 2027 education"
+    elif "higher_level_subjects" in intent.entities:
+        retrieval_query = "Education Higher Level Computer Science Mathematics Physics"
+    elif "aspirations" in intent.entities:
+        retrieval_query = "future aspirations engineering semiconductors aerospace quantum computing"
+    elif "drawing" in intent.entities:
+        retrieval_query = "digital drawing creative outlet hobbies"
+    elif "publication" in intent.entities:
+        retrieval_query = "Curieux Academic Journal publication research paper"
+    elif "anime_influence" in intent.entities:
+        retrieval_query = "Anime influence visual styles Japanese fashion"
+    destination_queries = {
+        "travel_italy": "Italy Tuscany sunset photography",
+        "travel_greece": "Greece Athens Ionian Sea photography video",
+        "travel_japan": "Japan Hokkaido winter photography video 21 day Tokyo Kyoto",
+        "travel_xinjiang": "Xinjiang video Nikon Z8 iPhone 13 Pro Bilibili",
+        "travel_russia": "Russia ice hockey international matches",
+        "travel_united_states": "United States Los Angeles ice hockey training",
+    }
+    for entity, query in destination_queries.items():
+        if entity in intent.entities and intent.topic == "travel":
+            retrieval_query = query
+            break
     if "coding_origin" in intent.entities:
         retrieval_query = "Self-taught Python during middle school programming"
     elif "gaming_reason" in intent.entities:

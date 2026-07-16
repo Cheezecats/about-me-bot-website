@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import time
@@ -10,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+import httpx
 from pydantic import BaseModel, Field, field_validator
 
 from backend import config
@@ -46,12 +48,17 @@ class _RateLimiter:
         recent.append(now)
         self._hits[key] = recent
         if len(self._hits) > 2000:
-            self._hits = {client: timestamps for client, timestamps in self._hits.items() if timestamps}
+            self._hits = {
+                client: [timestamp for timestamp in timestamps if now - timestamp < 60]
+                for client, timestamps in self._hits.items()
+                if any(now - timestamp < 60 for timestamp in timestamps)
+            }
         return True
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.started_at = time.time()
     app.state.bm25_index = _load_index()
     app.state.chunks = load_chunks()
     app.state.reranker = None
@@ -139,10 +146,34 @@ class ChatResponse(BaseModel):
     normalization_applied: bool = False
 
 
+def _display_confidence(raw_score: float, *, status: str, has_sources: bool, reason: str) -> float:
+    """Expose a bounded relevance indicator, while keeping the raw BM25 score separate."""
+
+    if not has_sources or status in {"refused", "clarification", "unavailable"}:
+        return 0.0
+    if reason in {"small_talk", "product_meta"}:
+        return 1.0
+    if raw_score <= 0:
+        return 0.0
+    # BM25 scores are query-dependent and are not probabilities. This smooth
+    # bounded transform keeps the public field useful without pretending it is
+    # a calibrated probability; retrieval_score preserves the diagnostic raw value.
+    return round(raw_score / (raw_score + 10.0), 3)
+
+
 @app.get("/api/health")
-async def health():
+async def health(deep: bool = False):
+    llm_ready: bool | None = None
+    if deep and config.LLM_BACKEND == "ollama":
+        try:
+            async with httpx.AsyncClient(timeout=config.OLLAMA_HEALTH_TIMEOUT_SECONDS) as client:
+                response = await client.get(f"{config.OLLAMA_HOST}/api/tags")
+            names = {model.get("name", "") for model in response.json().get("models", [])}
+            llm_ready = response.is_success and config.LLM_MODEL in names
+        except (httpx.HTTPError, ValueError):
+            llm_ready = False
     return {
-        "status": "ok",
+        "status": "ok" if llm_ready is not False else "degraded",
         "reranker_enabled": getattr(app.state, "reranker_enabled", False),
         "reranker_loaded": getattr(app.state, "reranker_loaded", False),
         "bm25_loaded": getattr(app.state, "bm25_index", None) is not None,
@@ -150,13 +181,16 @@ async def health():
         "llm_backend": config.LLM_BACKEND,
         "llm_model": config.LLM_MODEL,
         "query_planner_enabled": getattr(app.state, "query_planner_enabled", config.QUERY_PLANNER_ENABLED),
+        "llm_ready": llm_ready,
+        "chunks_loaded": len(getattr(app.state, "chunks", [])),
+        "uptime_seconds": round(time.time() - getattr(app.state, "started_at", time.time()), 1),
         "local_only_default": os.getenv("HOST", "127.0.0.1") in {"127.0.0.1", "localhost", "::1"},
     }
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, http_request: Request):
-    client_host = http_request.client.host if http_request.client else "unknown"
+    client_host = http_request.headers.get("CF-Connecting-IP") or (http_request.client.host if http_request.client else "unknown")
     if not app.state.rate_limiter.allow(client_host):
         limited = ChatResponse(
             status="unavailable",
@@ -215,7 +249,8 @@ async def chat(request: ChatRequest, http_request: Request):
                 reranked = candidates
                 fallback_used = True
             clause_results.append(
-                answer_or_refuse(
+                await asyncio.to_thread(
+                    answer_or_refuse,
                     clause,
                     reranked,
                     history=history,
@@ -248,7 +283,9 @@ async def chat(request: ChatRequest, http_request: Request):
     result["planner_used"] = config.QUERY_PLANNER_ENABLED
     result["planner_confidence"] = min(planner_confidences, default=0.0)
 
-    confidence = 0.0 if fallback_used else float(result["confidence"])
+    # BM25-only mode is the intentional production path, not an answer
+    # failure. Preserve its retrieval score for clients and diagnostics.
+    raw_confidence = float(result["confidence"])
     status = result.get("status", "answered")
     if fallback_used and status == "answered":
         status = "answered"
@@ -268,11 +305,23 @@ async def chat(request: ChatRequest, http_request: Request):
     retrieval_method = "reranker" if reranker is not None else ("bm25" if sources else "none")
     last_intent = clause_intents[-1] if clause_intents else None
     suggested_questions = build_follow_up_questions(last_intent, status)
+    confidence = _display_confidence(
+        raw_confidence,
+        status=status,
+        has_sources=bool(sources),
+        reason=result.get("reason", ""),
+    )
 
     if state is not None and status == "answered":
         topic = (last_intent.topic if last_intent else None) or (sources[0].category if sources else "unknown")
         entities = last_intent.entities if last_intent else ()
-        state.record(question, result["answer"], topic, entities=entities)
+        state.record(
+            question,
+            result["answer"],
+            topic,
+            entities=entities,
+            normalized_question=normalized_queries[-1] if normalized_queries else question,
+        )
 
     return ChatResponse(
         status=status,

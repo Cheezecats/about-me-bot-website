@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import signal
 import time
 
 import httpx
@@ -106,32 +105,21 @@ def _sanitize_context_for_external(chunks: list[dict]) -> list[dict]:
     ]
 
 
-def _timeout_handler(signum, frame):
-    raise TimeoutError("Ollama generation timed out")
-
-
 def _call_ollama(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
-    import ollama
+    """Call Ollama with a real HTTP timeout that also works in worker threads."""
 
-    def _invoke() -> str:
-        response = ollama.chat(
-            model=config.LLM_MODEL,
-            messages=messages,
-            options={"temperature": 0.0, "top_p": 0.9},
-        )
-        return response["message"]["content"].strip()
-
-    try:
-        previous = signal.signal(signal.SIGALRM, _timeout_handler)
-    except (ValueError, OSError):
-        return _invoke()
-
-    signal.setitimer(signal.ITIMER_REAL, float(timeout))
-    try:
-        return _invoke()
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
+    response = httpx.post(
+        f"{config.OLLAMA_HOST}/api/chat",
+        json={
+            "model": config.LLM_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.0, "top_p": 0.9},
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return response.json()["message"]["content"].strip()
 
 
 def _call_groq(messages: list[dict]) -> str:
@@ -185,6 +173,39 @@ def _select_context_chunks(
         return reranked_chunks
     if intent is not None and "additional_hobbies" in intent.entities:
         return reranked_chunks[:4]
+    if intent is not None and intent.topic == "videos":
+        return reranked_chunks[:3]
+    if intent is not None and intent.topic == "contact":
+        target_titles = {
+            "youtube": "YouTube channel",
+            "github": "GitHub profile",
+            "website": "Personal website",
+        }
+        for entity, title in target_titles.items():
+            if entity in intent.entities:
+                target = next(
+                    (chunk for chunk in reranked_chunks if chunk.get("metadata", {}).get("title") == title),
+                    None,
+                )
+                return [target] if target is not None else reranked_chunks[:1]
+        return reranked_chunks[:5]
+    if intent is not None:
+        target_titles = {
+            "instrument": "Electric guitar",
+            "travel_italy": "Italy (Tuscany)",
+            "travel_greece": "Greece (Athens, Ionian Sea)",
+            "travel_japan": "Japan (Hokkaido)",
+            "travel_xinjiang": "Xinjiang, China",
+            "travel_russia": "Russia",
+            "travel_united_states": "United States (Los Angeles)",
+        }
+        for entity, title in target_titles.items():
+            if entity in intent.entities:
+                target = next(
+                    (chunk for chunk in reranked_chunks if chunk.get("metadata", {}).get("title") == title),
+                    None,
+                )
+                return [target] if target is not None else reranked_chunks[:1]
     if _is_structured_summary(reranked_chunks[0]):
         return reranked_chunks[:1]
     top_score = float(reranked_chunks[0].get("score", 0.0))

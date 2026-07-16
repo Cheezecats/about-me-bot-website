@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 
 type ChatStatus = "idle" | "loading" | "answered" | "refused" | "clarification" | "unavailable" | "error";
+type ServiceStatus = "checking" | "online" | "offline";
 
 interface ChatSource {
   chunk_id: string;
@@ -63,7 +64,7 @@ function renderAssistantContent(content: string) {
     if (bulletItems.length > 0) {
       elements.push(
         <ul key={`bullets-${elements.length}`} className="my-1 list-disc space-y-1 pl-5">
-          {bulletItems.map((item, index) => <li key={index}>{item}</li>)}
+          {bulletItems.map((item, index) => <li key={index}>{renderInline(item)}</li>)}
         </ul>,
       );
       bulletItems = [];
@@ -71,7 +72,7 @@ function renderAssistantContent(content: string) {
     if (numberedItems.length > 0) {
       elements.push(
         <ol key={`numbers-${elements.length}`} className="my-1 list-decimal space-y-1 pl-5">
-          {numberedItems.map((item, index) => <li key={index}>{item}</li>)}
+          {numberedItems.map((item, index) => <li key={index}>{renderInline(item)}</li>)}
         </ol>,
       );
       numberedItems = [];
@@ -96,7 +97,7 @@ function renderAssistantContent(content: string) {
     if (!trimmed) return;
     elements.push(
       <p key={`line-${index}`} className={trimmed.endsWith(":") ? "font-semibold" : undefined}>
-        {trimmed}
+        {renderInline(trimmed)}
       </p>,
     );
   });
@@ -105,7 +106,25 @@ function renderAssistantContent(content: string) {
 }
 
 const API_URL = import.meta.env.VITE_CHAT_API_URL || "/api/chat";
+const HEALTH_URL = API_URL.replace(/\/chat(?:\?.*)?$/, "/health?deep=true");
 const CHATBOT_NAME = "JamChat";
+
+function renderInline(text: string): ReactNode[] {
+  return text.split(/(https?:\/\/[^\s)]+)/g).map((part, index) => (
+    /^https?:\/\//.test(part)
+      ? <a key={index} href={part} target="_blank" rel="noreferrer" className="underline decoration-violet-400 underline-offset-2 hover:text-violet-600">{part}</a>
+      : <span key={index}>{part}</span>
+  ));
+}
+
+function sourceExcerpt(source: ChatSource) {
+  const title = source.title || source.label || "";
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withoutHeading = title
+    ? source.text.replace(new RegExp(`^#+\\s*${escapedTitle}\\s*`, "i"), "")
+    : source.text.replace(/^#+\s*/, "");
+  return withoutHeading.trim().slice(0, 140) || source.text.trim().slice(0, 140);
+}
 
 const STARTER_QUESTIONS = [
   { icon: "🎮", label: "Favorite games", question: "What is James's favorite game?" },
@@ -119,6 +138,7 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<ChatStatus>("idle");
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
   const [showAbout, setShowAbout] = useState(false);
   const [panelSize, setPanelSize] = useState<PanelSize>(() => {
     if (typeof window === "undefined") return DEFAULT_PANEL_SIZE;
@@ -145,7 +165,11 @@ export default function ChatBot() {
   }, [messages]);
 
   useEffect(() => {
-    window.localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(panelSize));
+    try {
+      window.localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(panelSize));
+    } catch {
+      // Storage can be unavailable in private or restricted browser contexts.
+    }
   }, [panelSize]);
 
   useEffect(() => {
@@ -169,6 +193,24 @@ export default function ChatBot() {
     setShowAbout(false);
     sessionIdRef.current = createSessionId();
   }, []);
+
+  const checkHealth = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4000);
+    try {
+      const response = await fetch(HEALTH_URL, { signal: controller.signal });
+      const body = await response.json().catch(() => null);
+      setServiceStatus(response.ok && body?.status === "ok" ? "online" : "offline");
+    } catch {
+      setServiceStatus("offline");
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) void checkHealth();
+  }, [open, checkHealth]);
 
   const beginResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (window.matchMedia("(max-width: 639px)").matches) return;
@@ -198,12 +240,15 @@ export default function ChatBot() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setStatus("loading");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 35000);
 
     try {
       const resp = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, session_id: sessionIdRef.current }),
+        signal: controller.signal,
       });
 
       if (!resp.ok) {
@@ -239,6 +284,7 @@ export default function ChatBot() {
           ? "unavailable"
           : "error",
       );
+      setServiceStatus("online");
     } catch (error) {
       const errorMsg: Message = {
         role: "assistant",
@@ -246,18 +292,23 @@ export default function ChatBot() {
         status: "error",
         retryQuestion: question,
       };
-      if (error instanceof Error && error.message !== "") {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        errorMsg.content = "The request took too long. Please try again when the chat server is ready.";
+      } else if (error instanceof Error && error.message !== "") {
         errorMsg.content = error.message;
       }
       setMessages((prev) => [...prev, errorMsg]);
       setStatus("error");
+      setServiceStatus("offline");
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, [input, status]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      send();
+      void send();
     }
   };
 
@@ -340,11 +391,11 @@ export default function ChatBot() {
                 <div className="flex items-center gap-1.5">
                   <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
                     <motion.span
-                      className={`h-1.5 w-1.5 rounded-full ${status === "loading" ? "bg-violet-500" : "bg-emerald-500"}`}
+                      className={`h-1.5 w-1.5 rounded-full ${status === "loading" ? "bg-violet-500" : serviceStatus === "online" ? "bg-emerald-500" : serviceStatus === "checking" ? "bg-amber-400" : "bg-red-500"}`}
                       animate={status === "loading" && !reduceMotion ? { scale: [1, 1.5, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 1 }}
                       transition={{ duration: 1, repeat: status === "loading" && !reduceMotion ? Infinity : 0 }}
                     />
-                    {status === "loading" ? "working" : "online"}
+                    {status === "loading" ? "working" : serviceStatus}
                   </span>
                   <button
                     type="button"
@@ -491,7 +542,7 @@ export default function ChatBot() {
                           {msg.sources.map((source) => (
                             <li key={source.chunk_id}>
                               <span className="font-medium">{source.label || source.title || source.category}</span>
-                              <span className="ml-1">{source.text.replace(/^#+\s*[^\n]+\s*/, "").slice(0, 140)}...</span>
+                              <span className="ml-1">{sourceExcerpt(source)}...</span>
                             </li>
                           ))}
                         </ul>
@@ -537,7 +588,7 @@ export default function ChatBot() {
                 >
                   <div className="rounded-2xl bg-neutral-100 px-3 py-2.5 text-sm shadow-sm dark:bg-neutral-800">
                     <div className="mb-1 flex items-center gap-2 text-[10px] text-neutral-500">
-                      <span>James is thinking</span>
+                      <span>{CHATBOT_NAME} is thinking</span>
                       <span className="inline-flex gap-1">
                         {[0, 1, 2].map((dot) => (
                           <motion.span
@@ -590,8 +641,14 @@ export default function ChatBot() {
             <div
               role="separator"
               aria-label="Resize chat window"
-              aria-orientation="horizontal"
               onPointerDown={beginResize}
+              onKeyDown={(event) => {
+                const delta = event.key === "ArrowUp" || event.key === "ArrowRight" ? 20 : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -20 : 0;
+                if (!delta) return;
+                event.preventDefault();
+                setPanelSize((size) => ({ width: clamp(size.width + delta, 300, 560), height: clamp(size.height + delta, 400, 760) }));
+              }}
+              tabIndex={0}
               title="Drag to resize"
               className="absolute bottom-1 left-1 hidden h-5 w-5 cursor-nwse-resize items-end justify-start text-neutral-400 sm:flex"
             >
