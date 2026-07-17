@@ -261,6 +261,7 @@ async def chat(request: ChatRequest, http_request: Request):
                 history=history,
                 enforce_confidence_threshold=reranker is not None,
                 intent_question=semantic_question,
+                intent_override=plan.intent if config.QUERY_PLANNER_ENABLED else None,
             )
             clause_results.append(clause_result)
             if len(questions) > 1 and state is not None and clause_result.get("status") == "answered":

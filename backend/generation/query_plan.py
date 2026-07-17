@@ -92,9 +92,67 @@ def _correct_domain_typo(match: re.Match[str]) -> str:
     return corrected if token.islower() else corrected.capitalize()
 
 
+def _merge_contract_intent(primary: QueryIntent, raw: QueryIntent) -> QueryIntent:
+    """Keep raw question operators and qualifiers after canonical rewriting."""
+
+    return QueryIntent(
+        kind=primary.kind,
+        topic=primary.topic,
+        entities=tuple(dict.fromkeys((*primary.entities, *raw.entities))),
+        followup=primary.followup or raw.followup,
+        comparison=primary.comparison or raw.comparison,
+        before_year=primary.before_year or raw.before_year,
+        ordinal=primary.ordinal or raw.ordinal,
+        question_operator=raw.question_operator or primary.question_operator,
+        quantity=raw.quantity or primary.quantity,
+        qualifiers=tuple(dict.fromkeys((*primary.qualifiers, *raw.qualifiers))),
+        negated=primary.negated or raw.negated,
+        certainty=raw.certainty or primary.certainty,
+        temporal_relation=raw.temporal_relation or primary.temporal_relation,
+    )
+
+
 def _canonical_question(question: str) -> str:
     cleaned = _clean(question)
     lower = cleaned.lower()
+
+    if re.search(r"\b(?:fft\s+guitar\s+tuner|guitar\s+tuner|tune[- ]?app)\b", lower):
+        return "How does James's FFT guitar tuner work?"
+    if re.search(r"\b(?:who\s+(?:inspired|sparked)|inspiration|inspired).*\bcomputer\s+science\b", lower):
+        return "Who inspired James's interest in computer science?"
+    if re.search(r"\b(?:medical\s+recovery|recovery\s+platform|zhiyu)\b", lower) and re.search(
+        r"\b(?:build|built|create|created|develop|developed|project|work)\b", lower
+    ):
+        return "What is James's Flutter medical recovery platform?"
+    if re.search(r"(?:qiu(?:\s+competition)?|丘成桐中学科学奖)", lower) and re.search(
+        r"\b(?:win|won|winner)\b", lower
+    ):
+        return "Did James win the Qiu competition?"
+    if re.search(r"(?:qiu(?:\s+competition)?|丘成桐中学科学奖)", lower) and re.search(
+        r"\b(?:exact\s+name|what\s+is|name|participat)\b", lower
+    ):
+        return "What is the exact name of the Qiu competition?"
+    if re.search(r"(?:tell\s+me\s+about|what\s+about)\s+(?:james['’]s\s+)?ice\s+hockey\b", lower):
+        return "What position does James play in ice hockey?"
+    if re.search(r"\buniswap\b", lower) and re.search(r"\b(?:title|project|experiment)\b", lower):
+        return "What is the title of James's Uniswap project?"
+    if re.search(r"\b(?:camera|cameras|gear)\b", lower) and re.search(r"\bxinjiang\b", lower):
+        return "What camera did James use to film in Xinjiang?"
+    if re.search(r"\b(?:film|filmed|video|shot|recorded)\b", lower) and re.search(
+        r"\b(?:greece|athens|japan|hokkaido|xinjiang)\b", lower
+    ):
+        destination = "Greece" if re.search(r"\b(?:greece|athens)\b", lower) else (
+            "Japan" if re.search(r"\b(?:japan|hokkaido)\b", lower) else "Xinjiang"
+        )
+        return f"What did James film in {destination}?"
+    if re.search(r"\b(?:what|which)\b.*\b(?:not\s+one\s+of|not\s+among)\b.*\b(?:games?|apex)\b", lower):
+        return "What are James's favorite games?"
+    if re.search(r"\b(?:name|give|list)\b.*\bone\b.*\bcompetitive\b.*\bgames?\b", lower) or re.search(
+        r"\b(?:name|give|list)\b.*\b(?:all|every)\b.*\bcompetitive\b.*\bfavorites?\b", lower
+    ):
+        return "What are James's favorite games?"
+    if re.search(r"\b(?:what\s+did|what\s+has)\s+(?:james|he)\s+build\b", lower):
+        return "What projects has James built?"
 
     if re.search(r"\b(?:ide|ides|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower):
         return "What IDE/editor tools does James use?"
@@ -142,7 +200,7 @@ def _canonical_question(question: str) -> str:
         return "What are James's achievements?"
     if re.search(r"\bwhat\s+research\s+has\s+(?:james|he)\s+done\b|\bwhat\s+research\s+did\s+(?:james|he)\s+do\b", lower):
         return "What research has James done?"
-    if re.search(r"\bwhat\s+has\s+(?:james|he)\s+(?:built|created|developed|made)\b", lower):
+    if re.search(r"\bwhat\s+(?:has|did)\s+(?:james|he)\s+(?:build|built|create|created|developed|made)\b", lower):
         return "What projects has James built?"
     if re.fullmatch(r"(?:james['’]s?\s+)?favorites?", lower) or re.fullmatch(r"what\s+are\s+(?:james['’]s?\s+)?favorites?", lower):
         return "What are James's favorites?"
@@ -183,10 +241,23 @@ def _canonical_question(question: str) -> str:
             if re.search(pattern, lower):
                 return canonical
 
-    # Minimal deterministic CJK routing for the public topics the widget
-    # already supports. This avoids adding a translation dependency while
-    # still allowing common Chinese-only questions to reach the same curated
-    # answer paths as their English equivalents.
+    # Minimal deterministic CJK and mixed-language routing for the public
+    # topics the widget already supports. This keeps the answer path curated
+    # without adding a translation dependency.
+    if re.search(r"(?:丘成桐中学科学奖|qiu(?:\s+competition)?)", lower):
+        return "What is the exact name of the Qiu competition?"
+    if re.search(r"(?:研究项目|研究成果|做过哪些研究)", lower):
+        return "What research has James done?"
+    if re.search(r"(?:什么时候|何时).*(?:开始|起).*(?:吉他|乐器)", lower):
+        return "When did James start playing electric guitar?"
+    if re.search(r"(?:哪里|什么地方|哪些地方).*(?:拍过照|拍摄|照片)", lower):
+        return "Where has James photographed?"
+    if re.search(r"(?:相机|摄像机).*(?:什么|是|有)|(?:什么|哪种|哪些).*(?:相机|摄像机)", lower):
+        return "What camera gear does James use?"
+    if re.search(r"(?:HL|hl).*(?:科目|课程|subjects?)", lower):
+        return "What Higher Level subjects does James study?"
+    if re.search(r"\bfavorite\s+game(?:是什么|是哪些|是哪一个|吗)?", lower):
+        return "What are James's favorite games?"
     if re.search(r"(?:最喜欢|喜欢).*(?:游戏|电竞)", lower):
         return "What are James's favorite games?"
     if re.search(r"(?:最喜欢|喜欢).*(?:音乐|歌曲|歌曲|歌)", lower):
@@ -315,6 +386,7 @@ def build_query_plan(question: str) -> QueryPlan:
     original = question.strip()
     normalized = _canonical_question(original)
     intent = detect_intent(normalized)
+    intent = _merge_contract_intent(intent, detect_intent(original))
 
     # The Apex rank entity is intentionally explicit because "rank" is a
     # fact-level entity rather than a broad topic like games or hobbies.
@@ -329,6 +401,12 @@ def build_query_plan(question: str) -> QueryPlan:
             ordinal=intent.ordinal,
             before_year=intent.before_year,
             followup=intent.followup,
+            question_operator=intent.question_operator,
+            quantity=intent.quantity,
+            qualifiers=intent.qualifiers,
+            negated=intent.negated,
+            certainty=intent.certainty,
+            temporal_relation=intent.temporal_relation,
         )
 
     retrieval_query = normalized
@@ -339,7 +417,35 @@ def build_query_plan(question: str) -> QueryPlan:
         "videos": "videos filmed video vlog Nikon Z8",
     }
     retrieval_query = topic_queries.get(intent.topic or "", retrieval_query)
-    if "graduation" in intent.entities:
+    destination_queries = {
+        "travel_italy": "Italy Tuscany sunset photography",
+        "travel_greece": "Greece Athens Ionian Sea photography video",
+        "travel_japan": "Japan Hokkaido winter photography video 21 day Tokyo Kyoto",
+        "travel_xinjiang": "Xinjiang video Nikon Z8 iPhone 13 Pro Bilibili",
+        "travel_russia": "Russia ice hockey international matches",
+        "travel_united_states": "United States Los Angeles ice hockey training",
+    }
+    for entity, query in destination_queries.items():
+        if entity in intent.entities and intent.topic == "travel":
+            retrieval_query = query
+            break
+    if "fft_tuner" in intent.entities:
+        retrieval_query = "Tune-app FFT Guitar Tuner Web Audio API real-time FFT autocorrelation HPS pitch detection"
+    elif "medical_platform" in intent.entities:
+        retrieval_query = "智愈APP Zhiyu App Flutter medical recovery platform patient doctor AI assistant"
+    elif "cs_inspiration" in intent.entities:
+        retrieval_query = "person who sparked computer science interest classmate econ-grapher"
+    elif "qiu_competition" in intent.entities:
+        retrieval_query = "丘成桐中学科学奖 Qiu Competition histology neural network architectures"
+    elif "uniswap_project" in intent.entities:
+        retrieval_query = "Uniswap V3 EE experiment Foundry MockPool MathHelpers ResearchExperiment"
+    elif "video_greece" in intent.entities:
+        retrieval_query = "Greece video 8K Athens Ionian Sea Nikon Z8"
+    elif "video_japan" in intent.entities:
+        retrieval_query = "Japan Winter video 4K Hokkaido Nikon Z8"
+    elif "video_xinjiang" in intent.entities or "camera_xinjiang" in intent.entities:
+        retrieval_query = "Xinjiang video Nikon Z8 iPhone 13 Pro Bilibili"
+    elif "graduation" in intent.entities:
         retrieval_query = "expected graduation 2027 education"
     elif "higher_level_subjects" in intent.entities:
         retrieval_query = "Education Higher Level Computer Science Mathematics Physics"
@@ -357,19 +463,7 @@ def build_query_plan(question: str) -> QueryPlan:
         retrieval_query = "Anime influence visual styles Japanese fashion"
     elif "photographed_places" in intent.entities:
         retrieval_query = "photographed Japan Hokkaido Italy Tuscany Greece Athens"
-    destination_queries = {
-        "travel_italy": "Italy Tuscany sunset photography",
-        "travel_greece": "Greece Athens Ionian Sea photography video",
-        "travel_japan": "Japan Hokkaido winter photography video 21 day Tokyo Kyoto",
-        "travel_xinjiang": "Xinjiang video Nikon Z8 iPhone 13 Pro Bilibili",
-        "travel_russia": "Russia ice hockey international matches",
-        "travel_united_states": "United States Los Angeles ice hockey training",
-    }
-    for entity, query in destination_queries.items():
-        if entity in intent.entities and intent.topic == "travel":
-            retrieval_query = query
-            break
-    if "lens" in intent.entities:
+    elif "lens" in intent.entities:
         retrieval_query = "photography camera lenses NIKKOR 24-120mm 85mm"
     if "coding_origin" in intent.entities:
         retrieval_query = "Self-taught Python during middle school programming"

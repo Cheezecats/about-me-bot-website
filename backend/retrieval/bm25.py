@@ -175,6 +175,23 @@ def retrieve(
             and c.get("metadata", {}).get("title") == "Achievements & Awards"
             else 0.0
         )
+        # For destination video questions, the video record is the requested
+        # evidence. Destination travel notes often share the same place name,
+        # so give the exact video heading a deterministic tie-breaker.
+        if category == "video":
+            destination_video_titles = {
+                "greece": "Greece",
+                "athens": "Greece",
+                "japan": "Japan Winter",
+                "hokkaido": "Japan Winter",
+                "xinjiang": "Xinjiang, China",
+            }
+            for term, title in destination_video_titles.items():
+                if term in raw_query_terms and c.get("metadata", {}).get("title") == title and raw_query_terms & {
+                    "film", "filmed", "filming", "video", "videos", "shot", "recorded"
+                }:
+                    summary_bonus += 12.0
+                    break
         if travel_query and c.get("metadata", {}).get("title") == "Travel":
             summary_bonus += 12.0
         if project_query and c.get("metadata", {}).get("title") in {"Projects & Skills", "Programming languages"}:

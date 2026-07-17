@@ -43,6 +43,8 @@ NON_PROFILE_REQUEST_PATTERNS = [
     r"\bfuture\s+(?:university|college)\b",
     r"\b(?:harvard|stanford|mit|oxford|cambridge)\b.*\b(?:degree|graduat(?:e|ed|ion)|attend|study|school)\b",
     r"\b(?:olympic|olympics)\b.*\b(?:medal|medallist|win|won|competed)\b",
+    r"\b(?:what|did)\s+(?:did\s+)?(?:james|he)\s+(?:do|doing)\s+before\s+(?:learning|he\s+learned)\s+python\b",
+    r"\bwhat\s+did\s+(?:james|he)\s+do\s+after\s+starting\s+(?:the\s+)?(?:electric\s+)?guitar\b",
     # The profile names James's current camera but does not document a
     # previous DSLR or camera. Refuse the implied comparison rather than
     # turning an unsupported premise into a fabricated fact.
@@ -57,7 +59,9 @@ REFUSAL_VARIANTS = [
 ]
 
 PRODUCT_META_PATTERNS = [
-    r"\b(?:what|which)\s+(?:is\s+the\s+)?(?:ai\s+)?model\b",
+    r"\b(?:what|which)\s+(?:is\s+the\s+)?(?:ai\s+)?model\s+(?:are\s+you|powers?\s+(?:this|the|jamchat)|does\s+(?:this|the|jamchat)\s+use)\b",
+    r"\bwhat\s+(?:is\s+the\s+)?(?:ai|llm)\s+model\b",
+    r"\bwhat\s+model\s*(?:\?|!|\.)?$",
     r"\b(?:who\s+are\s+you|what\s+are\s+you)\b",
     r"\bwhat\s+(?:can|could)\s+(?:you|this\s+(?:chat|bot|assistant))\s+(?:answer|do)\b",
     r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack)\b",

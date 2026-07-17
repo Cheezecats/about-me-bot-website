@@ -17,6 +17,12 @@ class QueryIntent:
     comparison: bool = False
     before_year: int | None = None
     ordinal: int | None = None
+    question_operator: str | None = None
+    quantity: str | None = None
+    qualifiers: tuple[str, ...] = ()
+    negated: bool = False
+    certainty: str | None = None
+    temporal_relation: str | None = None
 
 
 _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -38,7 +44,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b(?:favorite|favourite)\s+(?:anime|movie|movies|film|films|book|books|series|place|subject|subjects)\b", "favorites"),
     (r"\b(?:favorites|favourites)\b", "favorites"),
     (r"\b(?:school|study|studies|education|curriculum|grade|graduat(?:e|ion)|ibdp|igcse|subjects?)\b", "education"),
-    (r"\b(?:project|projects|built|created|developed|skills?|programming|code|coding|language|python|typescript|solidity)\b", "projects"),
+    (r"\b(?:project|projects|build|built|created|developed|skills?|programming|code|coding|language|python|typescript|solidity)\b", "projects"),
 )
 
 _FOLLOWUP_PATTERN = re.compile(
@@ -79,6 +85,69 @@ def _ordinal(question: str) -> int | None:
     return {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3}[match.group(1).lower()]
 
 
+def _contract_fields(question: str) -> dict[str, object]:
+    """Extract answer-contract signals before canonicalization can erase them."""
+
+    lower = question.strip().lower()
+    if re.search(r"\bhow\s+many\b", lower):
+        operator = "count"
+    elif re.search(r"\bwhy\b", lower):
+        operator = "why"
+    elif re.search(r"\bhow\b", lower):
+        operator = "how"
+    elif re.search(r"\bwhere\b", lower):
+        operator = "where"
+    elif re.search(r"\bwhen\b", lower):
+        operator = "when"
+    elif re.search(r"\bwhich\b", lower):
+        operator = "which"
+    elif re.search(r"\bwho\b", lower):
+        operator = "who"
+    elif re.match(r"(?:does|did|is|are|has|have|can|could)\b", lower):
+        operator = "yes_no"
+    else:
+        operator = "what"
+
+    quantity: str | None = None
+    if re.search(r"\b(?:name|give|list)\s+(?:me\s+)?one\b|\bone\s+(?:competitive|non[- ]competitive)?\s*(?:game|band|artist|project|sport)\b", lower):
+        quantity = "one"
+    elif re.search(r"\b(?:all|every|each|full\s+list)\b", lower):
+        quantity = "all"
+    elif operator == "count":
+        quantity = "count"
+    elif re.search(r"\b(?:games|bands|artists|cameras|projects|sports|videos|essays|hobbies|interests)\b", lower):
+        quantity = "plural"
+    elif re.search(r"\b(?:game|band|artist|camera|project|sport|video|essay|hobby|interest)\b", lower):
+        quantity = "singular"
+
+    qualifiers: list[str] = []
+    if re.search(r"\bcompetitive(?:ly)?\b", lower):
+        qualifiers.append("competitive")
+    if re.search(r"\bnon[- ]competitive(?:ly)?\b", lower):
+        qualifiers.append("non-competitive")
+    if re.search(r"\b(?:ai|llm|machine\s+learning|computer\s+vision)\b", lower):
+        qualifiers.append("ai")
+    if re.search(r"\b(?:favorite|favourite)\b", lower):
+        qualifiers.append("favorite")
+
+    temporal_relation = None
+    if re.search(r"\bbefore\b", lower):
+        temporal_relation = "before"
+    elif re.search(r"\bafter\b", lower):
+        temporal_relation = "after"
+    elif re.search(r"\b(?:stop|stopped|still|no\s+longer)\b", lower):
+        temporal_relation = "cessation"
+
+    return {
+        "question_operator": operator,
+        "quantity": quantity,
+        "qualifiers": tuple(qualifiers),
+        "negated": bool(re.search(r"\b(?:not|never|no\s+longer)\b", lower)),
+        "certainty": "certainty" if re.search(r"\b(?:definitely|certainly|actually|really)\b", lower) else None,
+        "temporal_relation": temporal_relation,
+    }
+
+
 def _topic(question: str) -> str | None:
     for pattern, topic in _TOPIC_PATTERNS:
         if re.search(pattern, question, re.IGNORECASE):
@@ -104,7 +173,11 @@ def detect_intent(question: str) -> QueryIntent:
     if re.search(r"\bfavorite\s+(?:programming\s+)?language\b", lower):
         return QueryIntent("unsupported", topic="projects")
 
-    if re.search(r"\b(?:essay|essays|ia|internal\s+assessment|paper|research)\b", lower) and re.search(
+    if re.search(r"\b(?:fft\s+guitar\s+tuner|guitar\s+tuner|tune[- ]?app)\b", lower):
+        topic = "projects"
+    elif re.search(r"\b(?:who\s+(?:inspired|sparked)|inspiration|inspired).*\bcomputer\s+science\b", lower):
+        topic = "education"
+    elif re.search(r"\b(?:essay|essays|ia|internal\s+assessment|paper|research)\b", lower) and re.search(
         r"\bapex(?:\s+legends)?\b", lower
     ):
         topic = "writing"
@@ -132,6 +205,10 @@ def detect_intent(question: str) -> QueryIntent:
         topic = "travel"
     else:
         topic = _topic(question)
+    if re.search(r"(?:qiu\s*(?:competition|award)?|丘成桐中学科学奖)", lower):
+        topic = "achievements"
+    if re.search(r"\b(?:medical\s+recovery|recovery\s+platform|zhiyu|flutter\s+medical)\b", lower):
+        topic = "projects"
     comparison = bool(
         re.search(r"\b(?:compare|versus|vs\.?|which|before|earliest|first|latest|most|different)\b", lower)
     )
@@ -153,12 +230,23 @@ def detect_intent(question: str) -> QueryIntent:
             "camera" if re.search(r"\bcameras?\b", lower) else None,
             "lens" if re.search(r"\blens(?:es)?\b", lower) else None,
             "instrument" if re.search(r"\b(?:instrument|guitar)\b", lower) else None,
+            "sport_skiing" if re.search(r"\bskiing\b", lower) else None,
+            "sport_ice_hockey" if re.search(r"\bice\s+hockey\b|\bhockey\b", lower) else None,
+            "sport_tennis" if re.search(r"\btennis\b", lower) else None,
+            "sport_floorball" if re.search(r"\bfloorball\b", lower) else None,
+            "sport_soccer" if re.search(r"\bsoccer\b", lower) else None,
+            "fft_tuner" if re.search(r"\b(?:fft\s+guitar\s+tuner|guitar\s+tuner|tune[- ]?app)\b", lower) else None,
+            "medical_platform" if re.search(r"\b(?:medical\s+recovery|recovery\s+platform|zhiyu|flutter\s+medical)\b", lower) else None,
+            "cs_inspiration" if re.search(r"\b(?:who\s+(?:inspired|sparked)|inspiration|inspired).*\bcomputer\s+science\b", lower) else None,
+            "uniswap_project" if re.search(r"\buniswap\b", lower) and re.search(r"\b(?:project|title|experiment|essay)\b", lower) else None,
+            "qiu_competition" if re.search(r"(?:qiu(?:\s+competition)?|丘成桐中学科学奖)", lower) else None,
+            "qiu_win" if re.search(r"(?:qiu(?:\s+competition)?|丘成桐中学科学奖)", lower) and re.search(r"\b(?:win|won|winner|medal|award)\b", lower) else None,
             "photographed_places" if re.search(
                 r"\b(?:where|what\s+(?:places?|locations?)|which\s+(?:places?|countries?))\b", lower
             ) and re.search(
                 r"\b(?:photograph(?:y|ed|s)?|photo(?:s)?|picture(?:s)?|filmed|shot)\b", lower
             ) else None,
-            "competitive" if "competitive" in lower else None,
+            "competitive" if re.search(r"\bcompetitive(?:ly)?\b", lower) else None,
             "non-competitive" if "non-competitive" in lower or "noncompetitive" in lower else None,
             "ai" if re.search(r"\b(?:ai|llm|machine learning|computer vision)\b", lower) else None,
             "programming_languages" if re.search(r"\bprogramming\s+languages?\b|\blanguages?\s+does", lower) else None,
@@ -170,6 +258,7 @@ def detect_intent(question: str) -> QueryIntent:
             "travel_russia" if re.search(r"\brussia\b", lower) else None,
             "travel_united_states" if re.search(r"\b(?:united\s+states|los\s+angeles)\b", lower) else None,
             "training" if re.search(r"\b(?:train|training|competed|competition)\b", lower) else None,
+            "music_overview" if re.search(r"(?:最喜欢|喜欢).*(?:音乐|歌曲|歌)", lower) else None,
             "song" if re.search(r"\b(?:song|songs|track|tracks)\b", lower) else None,
             "band" if re.search(r"\bbands?\b", lower) else None,
             "artist" if re.search(r"\b(?:artists?|singers?)\b", lower) else None,
@@ -178,6 +267,7 @@ def detect_intent(question: str) -> QueryIntent:
             "gaming_reason" if re.search(r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower) and re.search(r"\b(?:game|games|gaming|apex|valorant|csgo)\b", lower) else None,
             "coding_origin" if re.search(r"\b(?:learn|learned|self-taught|taught|start|started|begin|began)\b", lower) and re.search(r"\b(?:code|coding|programming|python|software)\b", lower) else None,
             "apex_rank" if re.search(r"\bapex\s+legends\b", lower) and re.search(r"\brank\b", lower) else None,
+            "apex_game" if re.search(r"\bapex(?:\s+legends)?\b", lower) else None,
             "anime" if re.search(r"\banime\b", lower) else None,
             "movie" if re.search(r"\b(?:movie|movies)\b", lower) and not re.search(r"\b(?:film|filmed|filming|shot|recorded)\b", lower) else None,
             "book" if re.search(r"\b(?:book|books|series)\b", lower) else None,
@@ -198,11 +288,16 @@ def detect_intent(question: str) -> QueryIntent:
             "anime_influence" if re.search(r"\banime\b", lower) and re.search(r"\b(?:influence|influenced|impact|style)\b", lower) else None,
             "best_sport" if re.search(r"\b(?:best|strongest|better)\s+(?:at\s+)?sport\b|\bsport\s+is\s+(?:he|james)\s+(?:best|strongest)\b", lower) else None,
             "video_overview" if re.search(r"\b(?:what|which|tell).*(?:videos?|vlogs?)\b", lower) else None,
+            "video_greece" if re.search(r"\b(?:film|filmed|video|shot|recorded)\b", lower) and re.search(r"\b(?:greece|athens)\b", lower) else None,
+            "video_japan" if re.search(r"\b(?:film|filmed|video|shot|recorded)\b", lower) and re.search(r"\b(?:japan|hokkaido)\b", lower) else None,
+            "video_xinjiang" if re.search(r"\b(?:film|filmed|video|shot|recorded)\b", lower) and re.search(r"\bxinjiang\b", lower) else None,
+            "camera_xinjiang" if re.search(r"\b(?:camera|cameras|gear)\b", lower) and re.search(r"\bxinjiang\b", lower) else None,
             "favorites_overview" if re.fullmatch(r"(?:what\s+are\s+)?(?:james'?s?\s+)?favorites?", lower.strip(" ,;?!")) else None,
         )
         if entity
     )
 
+    contract = _contract_fields(question)
     return QueryIntent(
         kind="profile" if topic else "unknown",
         topic=topic,
@@ -211,4 +306,5 @@ def detect_intent(question: str) -> QueryIntent:
         comparison=comparison,
         before_year=int(before_match.group(1)) if before_match else None,
         ordinal=_ordinal(question),
+        **contract,
     )

@@ -25,7 +25,7 @@ from backend.generation.policies import (
     normalize_refusal,
     product_meta_answer,
 )
-from backend.generation.query_plan import build_query_plan
+from backend.generation.query_plan import _merge_contract_intent, build_query_plan
 from backend.generation.structured_answers import (
     STRUCTURED_SUMMARY_TITLES,
     extractive_answer,
@@ -186,7 +186,9 @@ def _select_context_chunks(
             seen_titles.add(title)
             favorite_chunks.append(chunk)
         return favorite_chunks[:7] if favorite_chunks else reranked_chunks[:3]
-    if intent is not None and intent.topic == "videos":
+    if intent is not None and intent.topic == "videos" and not any(
+        entity in intent.entities for entity in {"video_greece", "video_japan", "video_xinjiang"}
+    ):
         return reranked_chunks[:3]
     if intent is not None and intent.topic == "contact":
         target_titles = {
@@ -204,6 +206,20 @@ def _select_context_chunks(
         return reranked_chunks[:5]
     if intent is not None:
         target_titles = {
+            "fft_tuner": "Tune-app (FFT Guitar Tuner)",
+            "medical_platform": "智愈APP (Zhiyu App) — Flutter medical platform",
+            "cs_inspiration": "Person who sparked CS interest",
+            "qiu_competition": "丘成桐中学科学奖 (Qiu Competition)",
+            "uniswap_project": "Uniswap V3 EE experiment",
+            "video_greece": "Greece",
+            "video_japan": "Japan Winter",
+            "video_xinjiang": "Xinjiang, China",
+            "camera_xinjiang": "Xinjiang, China",
+            "sport_skiing": "Sports",
+            "sport_ice_hockey": "Sports",
+            "sport_tennis": "Sports",
+            "sport_floorball": "Sports",
+            "sport_soccer": "Sports",
             "camera": "Photography and videography",
             "lens": "Photography and videography",
             "instrument": "Electric guitar",
@@ -219,6 +235,8 @@ def _select_context_chunks(
             "travel_united_states": "United States (Los Angeles)",
         }
         for entity, title in target_titles.items():
+            if entity.startswith("sport_") and intent.topic != "sports":
+                continue
             if entity in intent.entities:
                 target = next(
                     (
@@ -262,6 +280,7 @@ def answer_or_refuse(
     history: list[dict] | None = None,
     enforce_confidence_threshold: bool = True,
     intent_question: str | None = None,
+    intent_override: QueryIntent | None = None,
 ) -> dict:
     started = time.perf_counter()
     semantic_question = intent_question.strip() if intent_question else question
@@ -270,14 +289,22 @@ def answer_or_refuse(
         # applying the same deterministic normalization when no plan was
         # supplied by the request orchestrator.
         semantic_question = build_query_plan(question).normalized_question
-    intent: QueryIntent = detect_intent(question)
-    if intent_question or semantic_question != question:
-        resolved_intent = detect_intent(semantic_question)
-        if resolved_intent.kind != "unknown":
-            # The planner's normalized query is the authoritative semantic
-            # interpretation, while policy checks below still inspect the raw
-            # user message for privacy and unsupported requests.
-            intent = resolved_intent
+    # Use the planner's merged intent rather than re-detecting only the
+    # canonical wording. Canonicalization may intentionally remove concrete
+    # entities (for example “Qiu” or “Apex Legends not”), while the formatter
+    # still needs those entities to answer the user's actual contract.
+    planned_intent = build_query_plan(question).intent
+    if intent_override is not None:
+        intent = intent_override
+    elif intent_question and semantic_question != question:
+        # Direct callers may provide a state-resolved semantic question but
+        # not the already merged planner intent. Merge both sides so the
+        # resolved subject (for example electric guitar) and the raw operator
+        # are retained.
+        resolved_intent = build_query_plan(semantic_question).intent
+        intent = _merge_contract_intent(resolved_intent, planned_intent)
+    else:
+        intent = planned_intent
 
     if intent.kind == "small_talk" or is_small_talk(question):
         return _result("answered", SMALL_TALK_RESPONSE, confidence=1.0, reason="small_talk")

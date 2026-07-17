@@ -110,10 +110,25 @@ def _numbered(items: list[str]) -> str:
 
 def _format_games(facts: dict, intent: QueryIntent) -> str:
     games = facts["favorite_games"]
-    if "competitive" in intent.entities and "non-competitive" not in intent.entities:
+    if intent.negated and "apex_game" in intent.entities:
+        return "No — Apex Legends is one of James's competitive favorite games."
+    competitive_only = "competitive" in intent.entities or "competitive" in intent.qualifiers
+    noncompetitive_only = "non-competitive" in intent.entities or "non-competitive" in intent.qualifiers
+    if competitive_only and not noncompetitive_only:
+        if intent.quantity == "one":
+            return f"One of James's competitive favorites is {games['competitive'][0]}."
         return "James's competitive favorites are:\n\n" + _bullets(games["competitive"])
-    if "non-competitive" in intent.entities and "competitive" not in intent.entities:
+    if noncompetitive_only and not competitive_only:
+        if intent.quantity == "one":
+            return f"One of James's non-competitive favorites is {games['non_competitive'][0]}."
         return "James's non-competitive favorites are:\n\n" + _bullets(games["non_competitive"])
+    if intent.quantity == "singular" and "favorite" in intent.qualifiers:
+        return (
+            "James's favorite games are:\n\n"
+            "- The profile does not rank one single favorite game.\n"
+            + "- Competitive: " + ", ".join(games["competitive"])
+            + "\n- Non-competitive: " + ", ".join(games["non_competitive"])
+        )
     return (
         "James's favorite games are:\n\n"
         + "- Competitive: "
@@ -125,12 +140,21 @@ def _format_games(facts: dict, intent: QueryIntent) -> str:
 
 def _format_music(facts: dict, intent: QueryIntent) -> str:
     music = facts["favorite_music"]
+    if "music_overview" in intent.entities:
+        return (
+            f"James's current favorite song is \"{music['song']}\" by {music['song_artist']}. "
+            f"His favorite artist is {music['artist']}; favorite bands include {', '.join(music['bands'])}."
+        )
     if "band" in intent.entities and "artist" in intent.entities:
         return (
             f"James's favorite artist is {music['artist']}; his favorite bands are "
             f"{', '.join(music['bands'])}."
         )
     if "band" in intent.entities and "song" not in intent.entities:
+        if intent.quantity == "singular" and "favorite" in intent.qualifiers:
+            return (
+                f"James's favorite bands are {', '.join(music['bands'])}; the profile does not rank one above the other."
+            )
         return f"James's favorite bands are {', '.join(music['bands'])}."
     if "song" in intent.entities and "band" not in intent.entities and "artist" not in intent.entities:
         return f"James's current favorite song is \"{music['song']}\" by {music['song_artist']}."
@@ -204,6 +228,22 @@ def _format_photography_overview(facts: dict) -> str:
 def _format_sports(facts: dict, intent: QueryIntent, question: str) -> str:
     sports = facts["sports"]
     started = [sport for sport in sports if "started" in sport]
+    if intent.question_operator == "count":
+        return f"James plays {len(sports)} sports: skiing, ice hockey, tennis, floorball, and soccer."
+    sport_entities = {
+        "sport_skiing": "skiing",
+        "sport_ice_hockey": "ice hockey",
+        "sport_tennis": "tennis",
+        "sport_floorball": "floorball",
+        "sport_soccer": "soccer",
+    }
+    if intent.question_operator == "when" and re.search(r"\b(?:start|started|begin|began)\b", question, re.IGNORECASE):
+        for entity, name in sport_entities.items():
+            if entity in intent.entities:
+                sport = next((item for item in started if item["name"] == name), None)
+                if sport is None:
+                    return f"James's profile does not document when he started {name}."
+                return f"James started playing {name} in {sport['started']}."
     if "best_sport" in intent.entities:
         return (
             "James plays skiing, ice hockey, tennis, floorball, and soccer, but his public profile "
@@ -232,6 +272,8 @@ def _format_projects(facts: dict, intent: QueryIntent, question: str) -> str:
         return "James works with:\n\n" + _bullets(facts["programming_languages"])
     if "ai" in intent.entities:
         projects = [project["name"] for project in facts["projects"] if "ai" in project["tags"]]
+        if intent.quantity == "one":
+            return f"One AI-related project is the {projects[0]}."
         return "Projects involving AI or machine learning:\n\n" + _numbered(projects)
     if intent.ordinal is not None and intent.ordinal <= len(facts["projects"]):
         project = facts["projects"][intent.ordinal - 1]
@@ -329,11 +371,21 @@ def _format_profile_answer(question: str, chunks: list[dict], intent: QueryInten
     if "favorites_overview" in intent.entities and _has_category(chunks, "favorites"):
         return _format_favorites_overview(facts)
     if "photographed_places" in intent.entities and (
-        _has_category(chunks, "travel") or _has_category(chunks, "photography")
+        _has_category(chunks, "travel")
+        or _has_category(chunks, "photography")
+        or any(
+            chunk.get("metadata", {}).get("title") == "Photography and videography"
+            for chunk in chunks
+        )
     ):
         return "James has photographed in:\n\n" + _bullets(facts["photographed_locations"])
     if "instrument" in intent.entities and _has_category(chunks, "hobbies"):
         guitar = facts["guitar"]
+        if intent.temporal_relation == "cessation":
+            return (
+                "No — James's profile says he plays electric guitar and started in 2025; "
+                "it does not document that he stopped."
+            )
         if re.search(r"\b(?:learn|learned|learning|self-taught|method)\b", question, re.IGNORECASE):
             return f"James learned electric guitar through self-taught study using online tutorials."
         if re.search(r"\b(?:genre|genres|kind|type)\b", question, re.IGNORECASE):
@@ -369,7 +421,9 @@ def _format_profile_answer(question: str, chunks: list[dict], intent: QueryInten
             f"- GitHub: {github}\n"
             f"- Website: {website}"
         )
-    if intent.topic == "videos" and _has_category(chunks, "video"):
+    if intent.topic == "videos" and _has_category(chunks, "video") and not {
+        "video_greece", "video_japan", "video_xinjiang"
+    }.intersection(intent.entities):
         videos = [chunk for chunk in chunks if chunk.get("metadata", {}).get("category") == "video"]
         if not videos:
             return None
@@ -432,6 +486,31 @@ def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent)
     title = metadata.get("title", "")
     lower = question.lower()
     facts = load_profile_facts()
+    if "fft_tuner" in intent.entities and category == "projects_skills":
+        return _body_without_heading(chunk)
+    if "medical_platform" in intent.entities and category == "projects_skills":
+        return _body_without_heading(chunk)
+    if "cs_inspiration" in intent.entities and category == "education":
+        return _body_without_heading(chunk)
+    if "uniswap_project" in intent.entities and category == "projects_skills":
+        return (
+            "James's project is titled “Uniswap V3 EE experiment.” "
+            + _body_without_heading(chunk)
+        )
+    if "qiu_competition" in intent.entities and category == "achievements":
+        if "qiu_win" in intent.entities or re.search(r"\b(?:win|won|winner)\b", lower):
+            return "James participated in the 丘成桐中学科学奖 (Qiu Competition); the public profile does not say that he won it."
+        return "The competition is named 丘成桐中学科学奖 (Qiu Competition)."
+    if "camera_xinjiang" in intent.entities and category == "travel":
+        return "In Xinjiang, James used a Nikon Z8 and an iPhone 13 Pro to film a video that he posted on Bilibili."
+    video_answers = {
+        "video_greece": "James filmed “Greece” in 8K in 2024, exploring Athens and the Ionian Sea.",
+        "video_japan": "James filmed “Japan Winter” in 4K in 2025, featuring snowy scenes in Hokkaido.",
+        "video_xinjiang": "James filmed a video in Xinjiang in 2026 using a Nikon Z8 and an iPhone 13 Pro, then posted it on Bilibili.",
+    }
+    for entity, answer in video_answers.items():
+        if entity in intent.entities and category == "video":
+            return answer
     if "coding_origin" in intent.entities and category in {"projects_skills", "education"}:
         coding = facts["coding_learning"]
         return (
@@ -440,6 +519,13 @@ def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent)
         )
     if "gaming_reason" in intent.entities and category in {"hobby", "gaming", "personality"}:
         return facts["gaming_reasons"]["answer"]
+    if intent.temporal_relation == "cessation" and "instrument" in intent.entities:
+        return (
+            "No — James's profile says he plays electric guitar and started in 2025; "
+            "it does not document that he stopped."
+        )
+    if intent.negated and "apex_game" in intent.entities and intent.topic == "games":
+        return "No — Apex Legends is one of James's competitive favorite games."
     if category == "apex_rank" and re.search(r"\bseason\b", lower) and not re.search(r"\brank\b", lower):
         apex_rank = load_profile_facts().get("apex_rank", {})
         if apex_rank.get("rank") and apex_rank.get("season"):
@@ -508,6 +594,11 @@ def format_structured_answer(
         return _format_music(facts, intent)
     if title == "Electric guitar":
         guitar = facts["guitar"]
+        if intent.temporal_relation == "cessation":
+            return (
+                "No — James's profile says he plays electric guitar and started in 2025; "
+                "it does not document that he stopped."
+            )
         return f"Yes — James plays {guitar['instrument']}. He started in {guitar['started']} and is {guitar['learning']}. He focuses on {', '.join(guitar['genres'][:-1])}, and {guitar['genres'][-1]}."
     if title == "Photography and videography":
         photography = facts["photography"]
@@ -520,6 +611,8 @@ def format_structured_answer(
         if "lens" in intent.entities:
             return f"James uses a {photography['lenses'][0]} lens and a {photography['lenses'][1]} lens."
         if "camera" in intent.entities:
+            if "favorite" in intent.qualifiers and intent.quantity == "singular":
+                return f"James's primary camera is a {photography['primary_camera']}; his profile does not identify a separate favorite camera."
             return f"James's primary camera is a {photography['primary_camera']}. He also uses a {photography['additional_cameras'][0]} and an {photography['additional_cameras'][1]}."
         if intent.topic == "photography":
             return _format_photography_overview(facts)
