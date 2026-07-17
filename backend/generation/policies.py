@@ -41,6 +41,12 @@ NON_PROFILE_REQUEST_PATTERNS = [
     r"\b(?:favorite|favourite)\s+(?:restaurant|photographer|university|college|actor|actress|brand)\b",
     r"\bleast\s+favorite\s+(?:games?|songs?|artists?|bands?|restaurants?|movies?|films?|books?)\b",
     r"\bfuture\s+(?:university|college)\b",
+    r"\b(?:harvard|stanford|mit|oxford|cambridge)\b.*\b(?:degree|graduat(?:e|ed|ion)|attend|study|school)\b",
+    r"\b(?:olympic|olympics)\b.*\b(?:medal|medallist|win|won|competed)\b",
+    # The profile names James's current camera but does not document a
+    # previous DSLR or camera. Refuse the implied comparison rather than
+    # turning an unsupported premise into a fabricated fact.
+    r"(?=.*\b(?:dslr|cameras?)\b)(?=.*\b(?:before|previous|prior|earlier)\b)(?=.*\bnikon\s+z8\b).*",
 ]
 REFUSAL_VARIANTS = [
     r"provided context does not contain",
@@ -55,10 +61,10 @@ PRODUCT_META_PATTERNS = [
     r"\b(?:who\s+are\s+you|what\s+are\s+you)\b",
     r"\bwhat\s+(?:can|could)\s+(?:you|this\s+(?:chat|bot|assistant))\s+(?:answer|do)\b",
     r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack)\b",
-    r"\b(?:how\s+does\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*work|what\s+happens\s+when\s+i\s+ask)\b",
+    r"\b(?:how\s+does\s+(?:this|the|jamchat)\s+(?:chatbot|chat|bot|assistant)?\s*work|what\s+happens\s+when\s+i\s+ask)\b",
     r"\b(?:rag|retrieval[- ]augmented(?:\s+generation)?|bm25|reranker|query\s+planner)\b",
     r"\b(?:knowledge\s+base|profile\s+facts?|where\s+does\s+(?:the\s+)?(?:data|information)\s+come\s+from)\b",
-    r"\bwhere\s+does\s+(?:this|the)\s+(?:chat|bot|assistant)'?s\s+(?:knowledge|data|information)\s+come\s+from\b",
+    r"\bwhere\s+does\s+(?:this|the)\s+(?:chatbot|chat|bot|assistant)'?s\s+(?:knowledge|data|information)\s+come\s+from\b",
     r"\b(?:source\s+attribution|source\s+labels?|why\s+(?:are|do)\s+(?:there\s+)?sources?)\b",
     r"\b(?:what|where)\s+(?:are|do)\s+(?:the\s+)?(?:sources?|citations?)\b",
     r"\bhow\s+(?:are|do)\s+(?:the\s+)?(?:sources?|citations?)\s+(?:selected|chosen|retrieved|ranked|work)\b",
@@ -107,7 +113,7 @@ def product_meta_answer(question: str) -> str:
     wants_model = bool(re.search(r"\b(?:model|qwen|ollama|3b|llm)\b", lower))
     wants_architecture = bool(
         re.search(
-            r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack|how\s+does\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*work|rag|retrieval|bm25|reranker|query\s+planner)\b",
+            r"\b(?:architecture|architectural|pipeline|system\s+design|tech(?:nology)?\s+stack|how\s+does\s+(?:this|the|jamchat)\s+(?:chatbot|chat|bot|assistant)?\s*work|rag|retrieval|bm25|reranker|query\s+planner)\b",
             lower,
         )
     )

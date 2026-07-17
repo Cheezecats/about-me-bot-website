@@ -36,7 +36,7 @@ def compound_label(question: str, index: int) -> str:
         "hobbies": "Hobbies",
         "favorites": "Favorites",
     }
-    return labels.get(intent.topic or intent.kind, f"Question {index}")
+    return labels.get(intent.topic or intent.kind, "Additional detail")
 
 
 def merge_compound_results(questions: list[str], results: list[dict]) -> dict:
@@ -58,6 +58,8 @@ def merge_compound_results(questions: list[str], results: list[dict]) -> dict:
         confidences.append(float(result.get("confidence", 0.0)))
         fallback_used = fallback_used or bool(result.get("fallback_used", False))
         total_ms += float(result.get("pipeline", {}).get("total_ms", 0.0))
+        if result_status != "answered":
+            continue
         for source in result.get("sources", []):
             chunk_id = str(source.get("chunk_id", ""))
             if chunk_id and chunk_id not in seen_sources:

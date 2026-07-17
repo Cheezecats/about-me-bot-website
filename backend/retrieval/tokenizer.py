@@ -59,6 +59,11 @@ QUERY_CORRECTIONS = {
     "musci": "music",
     "insturment": "instrument",
     "instruement": "instrument",
+    "achieved": "achievement",
+    "accomplished": "achievement",
+    "coding": "code",
+    "started": "start",
+    "filmed": "film",
 }
 
 QUERY_EXPANSIONS = {
@@ -109,6 +114,11 @@ QUERY_EXPANSIONS = {
     "awards": ("award", "achievement", "achievements", "earned", "silver"),
     "achievement": ("achievements", "award", "awards", "earned"),
     "achievements": ("achievement", "award", "awards", "earned"),
+    "code": ("coding", "programming", "python", "self-taught"),
+    "start": ("started", "learned", "middle", "school"),
+    "film": ("filmed", "filming", "videos", "vlogs"),
+    "singer": ("artist", "music", "song"),
+    "hl": ("higher", "level", "subjects", "education"),
     "won": ("earned", "award", "awards", "achievement"),
     "dislike": ("dislikes", "disliked", "summer", "season", "favorite"),
     "dislikes": ("dislike", "disliked", "summer", "season", "favorite"),

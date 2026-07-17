@@ -15,12 +15,12 @@ _EXPLICIT_TOPIC_TOKENS = frozenset(
     {
         "camera", "cameras", "lens", "lenses", "photography", "videography",
         "sports", "sport", "skiing", "hockey", "tennis", "floorball", "soccer",
-        "games", "game", "music", "song", "guitar", "instrument", "hobbies",
+        "games", "game", "gaming", "music", "song", "guitar", "instrument", "hobbies",
         "hobby", "essays", "essay", "projects", "project", "travel", "travelled",
         "food", "season", "school", "education", "rank", "programming", "language", "languages",
         "awards", "award", "achievements", "achievement", "anime", "movie", "book", "videos", "video",
         "youtube", "github", "bilibili", "contact", "email", "website", "personality", "bio", "drawing",
-        "graduate", "graduation", "subjects", "aspirations",
+        "graduate", "graduation", "subjects", "aspirations", "research", "essay", "essays", "ia", "hl", "believe", "values",
     }
 )
 _STOPWORDS = frozenset(
@@ -62,12 +62,19 @@ _ENTITY_CONTEXT_TERMS = {
     "anime": ("favorite anime",),
     "movie": ("favorite movie",),
     "book": ("favorite book series",),
+    "instrument": ("electric guitar", "instrument"),
 }
 
 
 def _is_followup(question: str) -> bool:
     tokens = set(re.findall(r"[a-z]+", question.lower()))
-    return bool(tokens & _FOLLOWUP_TOKENS) or bool(_VAGUE_FOLLOWUP_PATTERN.fullmatch(question.strip()))
+    if bool(tokens & _FOLLOWUP_TOKENS) or bool(_VAGUE_FOLLOWUP_PATTERN.fullmatch(question.strip())):
+        return True
+    return bool(re.fullmatch(
+        r"(?:what|where|when|how|which)\s+(?:does|did|is|are|has|have|can|could)\s+(?:he|she|they|it)\b.*",
+        question.strip(),
+        flags=re.IGNORECASE,
+    ))
 
 
 def _keywords(text: str, limit: int = 3) -> list[str]:
@@ -148,7 +155,7 @@ class ConversationState:
             return "method"
         return topic if topic else (entities[0] if entities else None)
 
-    def _context_prefix(self) -> str:
+    def _context_prefix(self, *, include_answer_keywords: bool = False) -> str:
         terms: list[str] = []
         for entity in self.last_entities:
             terms.extend(_ENTITY_CONTEXT_TERMS.get(entity, ()))
@@ -157,7 +164,7 @@ class ConversationState:
         # A second-hop “which one?” needs the concrete item from the previous
         # answer, not merely the broad topic. This is deliberately limited to
         # list-like topics so it cannot leak arbitrary answer text into search.
-        if self.last_topic in {"sports", "games", "projects", "videos", "favorites"}:
+        if include_answer_keywords and self.last_topic in {"sports", "games", "projects", "videos", "favorites"}:
             terms.extend(_keywords(self.last_answer, limit=3))
 
         deduplicated: list[str] = []
@@ -178,10 +185,10 @@ class ConversationState:
         # previous Apex entity when the follow-up uses a pronoun.
         if (
             "apex_rank" in self.last_entities
-            and re.search(r"\bseason\b", lower)
-            and re.search(r"\b(?:he|it|reach|reached)\b", lower)
+            and re.search(r"\b(?:when|what\s+season|which\s+season)\b", lower)
+            and re.search(r"\b(?:reach|reached|it|he)\b", lower)
         ):
-            return "Apex Legends rank " + question
+            return "What season did James reach his rank in Apex Legends?"
 
         # Keep the concrete instrument and the requested time detail. A broad
         # "hobbies" prefix would otherwise retrieve the hobbies index.
@@ -191,6 +198,27 @@ class ConversationState:
             and re.search(r"\b(?:start|started|begin|began)\b", lower)
         ):
             return "When did James start playing electric guitar?"
+
+        if self.last_subject == "instrument" and re.search(r"\b(?:music|genre|genres)\b", lower) and re.search(
+            r"\b(?:play|plays|kind|type|focus|focused)\b", lower
+        ):
+            return "What genres does James play on electric guitar?"
+
+        if self.last_subject == "instrument" and re.search(r"\b(?:learn|learned|learning|method|how)\b", lower):
+            return "How did James learn to play electric guitar?"
+
+        if self.last_topic == "travel" and re.search(r"\bthere\b", lower) and re.search(
+            r"\b(?:photograph(?:y|ed|s)?|photo(?:s)?|picture(?:s)?)\b", lower
+        ):
+            destinations = {
+                "travel_italy": "Italy",
+                "travel_greece": "Greece",
+                "travel_japan": "Japan",
+                "travel_xinjiang": "Xinjiang",
+            }
+            destination = destinations.get(self.last_subject or "")
+            if destination:
+                return f"What did James photograph in {destination}?"
 
         # A named destination is already the subject of the follow-up. Keep
         # it intact so destination-aware routing can select its own evidence.
@@ -206,7 +234,8 @@ class ConversationState:
         # contaminated by an earlier answer about food or seasons.
         if question_tokens & _EXPLICIT_TOPIC_TOKENS:
             return question
-        prefix = self._context_prefix()
+        include_answer_keywords = bool(re.search(r"\b(?:which\s+one|first|second|third)\b", lower))
+        prefix = self._context_prefix(include_answer_keywords=include_answer_keywords)
         if not prefix:
             return question
         return prefix + " " + question

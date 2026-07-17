@@ -173,6 +173,19 @@ def _select_context_chunks(
         return reranked_chunks
     if intent is not None and "additional_hobbies" in intent.entities:
         return reranked_chunks[:4]
+    if intent is not None and "favorites_overview" in intent.entities:
+        favorite_chunks: list[dict] = []
+        seen_titles: set[str] = set()
+        for chunk in reranked_chunks:
+            metadata = chunk.get("metadata", {})
+            if metadata.get("category") not in {"favorites", "gaming", "food", "season", "travel"}:
+                continue
+            title = str(metadata.get("title") or chunk.get("chunk_id") or "")
+            if title in seen_titles:
+                continue
+            seen_titles.add(title)
+            favorite_chunks.append(chunk)
+        return favorite_chunks[:7] if favorite_chunks else reranked_chunks[:3]
     if intent is not None and intent.topic == "videos":
         return reranked_chunks[:3]
     if intent is not None and intent.topic == "contact":
@@ -195,6 +208,7 @@ def _select_context_chunks(
             "lens": "Photography and videography",
             "instrument": "Electric guitar",
             "aspirations": "Future aspirations",
+            "research_overview": "Writing & Essays",
             "graduation": "Expected graduation",
             "higher_level_subjects": "Education",
             "travel_italy": "Italy (Tuscany)",
@@ -297,7 +311,7 @@ def answer_or_refuse(
             "refused",
             config.REFUSAL_MESSAGE,
             confidence=top_score,
-            sources=sources,
+            sources=[],
             reason="low_retrieval_confidence",
         )
 
@@ -347,7 +361,7 @@ def answer_or_refuse(
         status,
         filtered,
         confidence=top_score,
-        sources=sources,
+        sources=sources if status == "answered" else [],
         fallback_used=fallback_used,
         total_ms=elapsed,
         generation_ms=generation_ms,

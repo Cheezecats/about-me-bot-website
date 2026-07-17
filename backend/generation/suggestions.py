@@ -38,7 +38,13 @@ def build_follow_up_questions(intent: QueryIntent | None, status: str) -> list[s
             return ["What lenses does James use?", "Where has James photographed?"]
         return ["What camera does James use?", "What lenses does James use?"]
     if intent.topic == "music":
-        return ["What are James's favorite bands?", "Does James play an instrument?"]
+        if "band" in intent.entities:
+            return ["What is James's favorite artist?", "What is James's favorite song?"]
+        if "artist" in intent.entities:
+            return ["What are James's favorite bands?", "What is James's favorite song?"]
+        if "song" in intent.entities:
+            return ["What is James's favorite artist?", "What are James's favorite bands?"]
+        return ["What is James's favorite song?", "What is James's favorite artist?"]
     if intent.topic == "hobbies":
         if "instrument" in intent.entities:
             return ["When did James start playing electric guitar?", "What music does James like?"]
