@@ -169,7 +169,7 @@ def _is_compound_request(question: str) -> bool:
 def _select_context_chunks(
     question: str, reranked_chunks: list[dict], intent: QueryIntent | None = None
 ) -> list[dict]:
-    if len(reranked_chunks) <= 1:
+    if not reranked_chunks:
         return reranked_chunks
     if intent is not None and "additional_hobbies" in intent.entities:
         return reranked_chunks[:4]
@@ -191,7 +191,12 @@ def _select_context_chunks(
         return reranked_chunks[:5]
     if intent is not None:
         target_titles = {
+            "camera": "Photography and videography",
+            "lens": "Photography and videography",
             "instrument": "Electric guitar",
+            "aspirations": "Future aspirations",
+            "graduation": "Expected graduation",
+            "higher_level_subjects": "Education",
             "travel_italy": "Italy (Tuscany)",
             "travel_greece": "Greece (Athens, Ionian Sea)",
             "travel_japan": "Japan (Hokkaido)",
@@ -202,10 +207,32 @@ def _select_context_chunks(
         for entity, title in target_titles.items():
             if entity in intent.entities:
                 target = next(
-                    (chunk for chunk in reranked_chunks if chunk.get("metadata", {}).get("title") == title),
+                    (
+                        chunk
+                        for chunk in reranked_chunks
+                        if chunk.get("metadata", {}).get("title") == title
+                        and (
+                            entity != "graduation"
+                            or chunk.get("metadata", {}).get("category") == "education"
+                        )
+                    ),
                     None,
                 )
                 return [target] if target is not None else reranked_chunks[:1]
+        if "photographed_places" in intent.entities:
+            destination_titles = {
+                "Japan (Hokkaido)",
+                "Italy (Tuscany)",
+                "Greece (Athens, Ionian Sea)",
+            }
+            matches = [
+                chunk
+                for chunk in reranked_chunks
+                if chunk.get("metadata", {}).get("title") in destination_titles
+            ]
+            return matches[:3] if matches else reranked_chunks[:3]
+    if len(reranked_chunks) <= 1:
+        return reranked_chunks
     if _is_structured_summary(reranked_chunks[0]):
         return reranked_chunks[:1]
     top_score = float(reranked_chunks[0].get("score", 0.0))

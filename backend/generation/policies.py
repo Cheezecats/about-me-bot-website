@@ -61,6 +61,10 @@ PRODUCT_META_PATTERNS = [
     r"\bwhere\s+does\s+(?:this|the)\s+(?:chat|bot|assistant)'?s\s+(?:knowledge|data|information)\s+come\s+from\b",
     r"\b(?:source\s+attribution|source\s+labels?|why\s+(?:are|do)\s+(?:there\s+)?sources?)\b",
     r"\b(?:what|where)\s+(?:are|do)\s+(?:the\s+)?(?:sources?|citations?)\b",
+    r"\bhow\s+(?:are|do)\s+(?:the\s+)?(?:sources?|citations?)\s+(?:selected|chosen|retrieved|ranked|work)\b",
+    r"\bhow\s+(?:do|does)\s+(?:you|this\s+chat|jamchat)\s+(?:choose|select|pick|decide)\s+(?:the\s+)?(?:sources?|citations?|chunks?)\b",
+    r"\bwhat\s+(?:determines|decides)\s+(?:which\s+)?(?:sources?|citations?|chunks?)\b",
+    r"\bhow\s+does\s+(?:source|citation)\s+selection\s+work\b",
     r"\b(?:conversation|chat)\s+(?:memory|history|session|sessions?)\b",
     r"\b(?:does|can|will)\s+(?:this|the|jamchat)\s+(?:chat|bot|assistant)?\s*(?:remember|store|save)\b",
     r"\b(?:is|does)\s+(?:this|the\s+chat|the\s+bot)\s+(?:trained|fine[- ]tuned|fine tuned|use\s+web\s+search|use\s+the\s+internet)\b",
@@ -134,8 +138,9 @@ def product_meta_answer(question: str) -> str:
         "and the indexed `data/chunks.json`. It does not browse the web or silently use outside facts while answering James-specific questions."
     )
     sources_answer = (
-        "The Sources section shows the knowledge-base chunks retrieved for that answer. They are evidence from the project's curated files, "
-        "not live web citations. Structured answers may show the summary chunk that supplied the relevant fact."
+        "The Sources section shows the knowledge-base chunks selected for that answer. The planner first interprets the question, then BM25 ranks matching "
+        "chunks from James's curated files; focused entities and structured summaries can further narrow the selection. The optional neural reranker is "
+        "currently disabled. These are evidence from the project knowledge base, not live web citations."
     )
     memory_answer = (
         "Conversation follow-ups use a short in-memory session identified by `session_id`. The backend keeps at most a few recent turns "

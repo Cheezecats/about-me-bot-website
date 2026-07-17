@@ -296,6 +296,10 @@ def _format_profile_answer(question: str, chunks: list[dict], intent: QueryInten
                 "and quantum computing. He has applied to related programs at Purdue, the University of Michigan, and Penn."
             )
         return facts["personality_summary"]
+    if "photographed_places" in intent.entities and (
+        _has_category(chunks, "travel") or _has_category(chunks, "photography")
+    ):
+        return "James has photographed in:\n\n" + _bullets(facts["photographed_locations"])
     if "instrument" in intent.entities and _has_category(chunks, "hobbies"):
         guitar = facts["guitar"]
         if re.search(r"\b(?:when|what year)\b", question, re.IGNORECASE) and re.search(

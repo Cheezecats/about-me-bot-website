@@ -42,6 +42,7 @@ def test_product_meta_questions_explain_the_system_without_retrieval():
         ("Is this chatbot fine-tuned?", ["not fine-tuned", "reranker"]),
         ("What are this chatbot's limitations?", ["general web search", "public profile"]),
         ("How is this website deployed?", ["GitHub Pages", "Cloudflare Quick Tunnel"]),
+        ("How are sources selected?", ["BM25", "knowledge base", "reranker"]),
     ]
     for question, expected_terms in cases:
         result = answer.answer_or_refuse(question, [], enforce_confidence_threshold=False)
