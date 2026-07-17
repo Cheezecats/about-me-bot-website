@@ -221,6 +221,12 @@ async def chat(request: ChatRequest, http_request: Request):
     normalization_applied = False
     history = state.build_history_messages() if state is not None else None
     questions = split_compound_question(question)
+    # A compound request is a short conversation inside one HTTP request. Use
+    # an ephemeral state when no session was supplied so clauses such as
+    # “Does he play guitar and when did he start?” can resolve naturally.
+    if state is None and len(questions) > 1:
+        state = ConversationState()
+        history = None
     clause_results: list[dict] = []
 
     try:
@@ -248,16 +254,26 @@ async def chat(request: ChatRequest, http_request: Request):
             else:
                 reranked = candidates
                 fallback_used = True
-            clause_results.append(
-                await asyncio.to_thread(
-                    answer_or_refuse,
-                    clause,
-                    reranked,
-                    history=history,
-                    enforce_confidence_threshold=reranker is not None,
-                    intent_question=semantic_question,
-                )
+            clause_result = await asyncio.to_thread(
+                answer_or_refuse,
+                clause,
+                reranked,
+                history=history,
+                enforce_confidence_threshold=reranker is not None,
+                intent_question=semantic_question,
             )
+            clause_results.append(clause_result)
+            if len(questions) > 1 and state is not None and clause_result.get("status") == "answered":
+                clause_intent = clause_intents[-1]
+                clause_topic = clause_intent.topic or (reranked[0].get("metadata", {}).get("category", "unknown") if reranked else "unknown")
+                state.record(
+                    clause,
+                    clause_result["answer"],
+                    clause_topic,
+                    entities=clause_intent.entities,
+                    normalized_question=semantic_question,
+                )
+                history = state.build_history_messages()
     except SystemExit:
         raise
     except Exception:

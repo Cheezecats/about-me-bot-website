@@ -150,6 +150,93 @@ def test_api_preserves_concrete_subjects_for_instrument_and_travel_followups():
         assert "James has visited" not in italy["answer"]
 
 
+def test_api_preserves_destination_and_reason_context_across_followups():
+    with TestClient(app, base_url="http://localhost") as client:
+        travel_session = "report-travel-followup"
+        client.post(
+            "/api/chat",
+            json={"question": "Where has James travelled?", "session_id": travel_session},
+        )
+        client.post(
+            "/api/chat",
+            json={"question": "What about Italy?", "session_id": travel_session},
+        )
+        photographed = client.post(
+            "/api/chat",
+            json={"question": "What did he photograph there?", "session_id": travel_session},
+        ).json()
+        greece = client.post(
+            "/api/chat",
+            json={"question": "And Greece?", "session_id": travel_session},
+        ).json()
+        assert photographed["status"] == "answered"
+        assert "Tuscany" in photographed["answer"]
+        assert greece["status"] == "answered"
+        assert "Athens" in greece["answer"]
+
+        gaming_session = "report-gaming-followup"
+        client.post(
+            "/api/chat",
+            json={"question": "What games does James like?", "session_id": gaming_session},
+        )
+        client.post(
+            "/api/chat",
+            json={"question": "What is his Apex rank?", "session_id": gaming_session},
+        )
+        season = client.post(
+            "/api/chat",
+            json={"question": "When did he reach it?", "session_id": gaming_session},
+        ).json()
+        reason = client.post(
+            "/api/chat",
+            json={"question": "Why does he enjoy gaming?", "session_id": gaming_session},
+        ).json()
+        assert "Season 22" in season["answer"]
+        assert "relax" in reason["answer"].lower()
+        assert "Diamond 2" not in reason["answer"]
+
+        guitar_session = "report-guitar-followup"
+        client.post(
+            "/api/chat",
+            json={"question": "Does James play an instrument?", "session_id": guitar_session},
+        )
+        genres = client.post(
+            "/api/chat",
+            json={"question": "What kind of music does he play?", "session_id": guitar_session},
+        ).json()
+        learned = client.post(
+            "/api/chat",
+            json={"question": "How did he learn?", "session_id": guitar_session},
+        ).json()
+        assert "J-pop" in genres["answer"]
+        assert "self-taught" in learned["answer"].lower()
+
+
+def test_api_suppresses_sources_for_refusals_and_clarifications():
+    with TestClient(app, base_url="http://localhost") as client:
+        refusal = client.post(
+            "/api/chat", json={"question": "What is James's Harvard degree?"}
+        ).json()
+        clarification = client.post(
+            "/api/chat", json={"question": "What does he play?"}
+        ).json()
+        assert refusal["status"] == "refused"
+        assert refusal["sources"] == []
+        assert clarification["status"] == "clarification"
+        assert clarification["sources"] == []
+
+
+def test_api_resolves_dependent_clauses_inside_one_compound_question():
+    with TestClient(app, base_url="http://localhost") as client:
+        body = client.post(
+            "/api/chat", json={"question": "Does he play guitar and when did he start?"}
+        ).json()
+        assert body["status"] == "answered"
+        assert "electric guitar" in body["answer"].lower()
+        assert "2025" in body["answer"]
+        assert "Question 2" not in body["answer"]
+
+
 def test_api_confidence_is_bounded_and_raw_score_remains_diagnostic():
     with TestClient(app, base_url="http://localhost") as client:
         body = client.post("/api/chat", json={"question": "What camera does James use?"}).json()

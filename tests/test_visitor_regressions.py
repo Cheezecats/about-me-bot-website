@@ -82,6 +82,69 @@ def test_bare_gaming_does_not_use_a_secondary_social_gaming_chunk(runtime):
 
 
 @pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Tell me about the Extended Essay.", "Uniswap V3"),
+        ("Tell me about the Physics IA.", "FFT guitar tuner"),
+        ("Tell me about James's ice hockey.", "defender"),
+        ("Who is James's favorite singer?", "DECO*27"),
+        ("how old is james", "17-year-old"),
+        ("What is James?", "Shanghai"),
+        ("When did James start coding?", "Python"),
+        ("What has James achieved?", "Physics Bowl"),
+        ("What research has James done?", "hallucination"),
+        ("Which essay involves Apex Legends?", "Markov"),
+        ("his HLs?", "Computer Science"),
+        ("How does this chatbot work?", "RAG"),
+        ("Where does the chatbot's knowledge come from?", "kb_extra"),
+        ("Where can I see his work?", "github.com"),
+        ("what does he wanna study later", "semiconductors"),
+        ("What music does James like?", "DECO*27"),
+        ("What are James's favorite bands and artists?", "DECO*27"),
+        ("Has he travelled with his camera?", "Hokkaido"),
+        ("What has James filmed?", "Greece"),
+        ("What has James built?", "FFT guitar tuner"),
+        ("What are James's favorites?", "Apex Legends"),
+        ("What does James believe in?", "James"),
+    ],
+)
+def test_glm_reported_natural_language_questions_are_answered(question, expected, runtime):
+    result = ask(question, runtime)
+    assert result["status"] == "answered", (question, result)
+    assert expected.lower() in result["answer"].lower(), (question, result)
+
+
+def test_reported_boundary_and_ambiguous_questions_do_not_guess(runtime):
+    for question in ["Tell me about James's Harvard degree.", "What does he play?", "What does he use?"]:
+        result = ask(question, runtime)
+        if question.startswith("Tell me"):
+            assert result["status"] == "refused", result
+            assert result["sources"] == [], result
+        else:
+            assert result["status"] == "clarification", result
+            assert result["sources"] == [], result
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What DSLR did James use before Nikon Z8?",
+        "Did James win an Olympic medal?",
+    ],
+)
+def test_unsupported_premises_are_refused_without_evidence(question: str, runtime):
+    result = ask(question, runtime)
+    assert result["status"] == "refused", result
+    assert result["sources"] == [], result
+
+
+def test_favorites_overview_does_not_duplicate_source_titles(runtime):
+    result = ask("What are James's favorites?", runtime)
+    titles = [source["title"] for source in result["sources"]]
+    assert len(titles) == len(set(titles)), result
+
+
+@pytest.mark.parametrize(
     "seed",
     [
         "How does this chat work?",

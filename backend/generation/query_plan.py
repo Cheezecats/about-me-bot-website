@@ -99,9 +99,17 @@ def _canonical_question(question: str) -> str:
     if re.search(r"\b(?:ide|ides|editor|editors|vscode|vs\s+code|zed|workbuddy|trae)\b", lower):
         return "What IDE/editor tools does James use?"
 
-    if re.search(r"\b(?:tell\s+me\s+about\s+james|who\s+is\s+james|james'?s?\s+bio|about\s+james)\b", lower):
+    if (
+        re.fullmatch(r"(?:tell\s+me\s+about|who\s+is|about)\s+james(?:['’]s)?", lower)
+        or re.fullmatch(r"james['’]s?\s+bio(?:graphy)?", lower)
+        or re.fullmatch(r"what\s+is\s+james", lower)
+    ):
+        return "Who is James?"
+    if re.search(r"\bhow\s+old\s+(?:is|was)\s+james\b|\bwhat\s+age\s+is\s+james\b", lower):
         return "Who is James?"
     if re.search(r"\b(?:what\s+is\s+james\s+like|james'?s?\s+personality|what\s+kind\s+of\s+person)\b", lower):
+        return "What is James like as a person?"
+    if re.search(r"\b(?:what\s+does\s+james\s+believe|james'?s?\s+(?:beliefs?|values?)|what\s+does\s+james\s+value)\b", lower):
         return "What is James like as a person?"
     if re.search(r"\b(?:how\s+can\s+i\s+contact|contact\s+james|james'?s?\s+contact)\b", lower):
         return "How can I contact James?"
@@ -109,17 +117,35 @@ def _canonical_question(question: str) -> str:
         return "What is James's YouTube channel?"
     if re.search(r"\b(?:github\s+(?:profile|account)|his\s+github|james'?s?\s+github)\b", lower):
         return "What is James's GitHub profile?"
-    if re.search(r"\b(?:what\s+videos?|which\s+videos?|videos?\s+(?:has|did)|tell\s+me\s+about.*videos?)\b", lower):
+    if re.search(
+        r"\b(?:what\s+videos?|which\s+videos?|videos?\s+(?:has|did)|tell\s+me\s+about.*videos?|what\s+(?:has|did)\s+(?:james|he)\s+film(?:ed|ing)?)\b",
+        lower,
+    ):
         return "What videos has James made?"
+    if re.search(r"\b(?:where\s+can\s+i\s+see|where\s+can\s+i\s+find|show\s+me|see)\s+(?:(?:james['’]s|his|their)\s+)?(?:public\s+)?(?:work|projects?|portfolio)\b", lower):
+        return "How can I contact James?"
     if re.search(r"\b(?:when\s+(?:will|does).*graduate|graduation|graduate)\b", lower):
         return "When will James graduate?"
-    if re.search(r"\b(?:what\s+subjects?.*(?:study|take)|(?:hl|higher\s+level)\s+subjects?)\b", lower):
+    if re.search(
+        r"\b(?:what\s+subjects?.*(?:study|take)|(?:hl|higher\s+level)\s+subjects?|(?:his|james'?s?)\s+hls?)\b",
+        lower,
+    ):
         return "What Higher Level subjects does James study?"
     if re.search(
-        r"\b(?:what\s+does\s+james\s+want\s+to\s+study|future\s+(?:academic\s+)?(?:plans?|interests?)|academic\s+interests?|aspirations?)\b",
+        r"\b(?:what\s+does\s+(?:james|he)\s+(?:want|wanna)\s+(?:to\s+)?study|(?:what\s+does\s+(?:james|he)\s+study)\s+(?:later|afterward|after)|future\s+(?:academic\s+)?(?:plans?|interests?)|academic\s+interests?|aspirations?)\b",
         lower,
     ):
         return "What are James's future academic interests?"
+    if re.search(r"\b(?:when\s+did|how\s+did|when\s+was)\s+(?:james|he)\s+(?:start|begin|learn)\s+(?:to\s+)?(?:coding|code|programming)\b", lower):
+        return "How did James learn to code?"
+    if re.search(r"\b(?:what\s+has|what\s+did)\s+(?:james|he)\s+(?:achieved|accomplished)\b", lower):
+        return "What are James's achievements?"
+    if re.search(r"\bwhat\s+research\s+has\s+(?:james|he)\s+done\b|\bwhat\s+research\s+did\s+(?:james|he)\s+do\b", lower):
+        return "What research has James done?"
+    if re.search(r"\bwhat\s+has\s+(?:james|he)\s+(?:built|created|developed|made)\b", lower):
+        return "What projects has James built?"
+    if re.fullmatch(r"(?:james['’]s?\s+)?favorites?", lower) or re.fullmatch(r"what\s+are\s+(?:james['’]s?\s+)?favorites?", lower):
+        return "What are James's favorites?"
     if re.search(r"\b(?:does\s+(?:james|he)\s+draw|digital\s+drawing|drawing\s+hobby)\b", lower):
         return "Does James do digital drawing?"
     if re.search(r"\b(?:what\s+(?:did|has)\s+(?:james|he)\s+publish(?:ed)?|publication|curieux)\b", lower):
@@ -128,6 +154,11 @@ def _canonical_question(question: str) -> str:
         return "How has anime influenced James's visual style?"
     if re.search(r"\b(?:best|strongest|better)\s+sport\b", lower):
         return "What sport is James best at?"
+
+    if re.search(r"\b(?:travel(?:ed|led)?|visited|been|abroad)\b", lower) and re.search(
+        r"\b(?:camera|photograph(?:y|ed|s)?|photo(?:s)?|picture(?:s)?)\b", lower
+    ):
+        return "Where has James photographed?"
 
     if re.search(
         r"\b(?:where|what\s+(?:places?|locations?)|which\s+(?:places?|countries?))\b", lower
@@ -239,16 +270,20 @@ def _canonical_question(question: str) -> str:
     ):
         return "What are James's favorite games?"
 
-    if (
-        re.search(r"\b(?:songs?|tracks?)\b", lower)
-        or (
-            re.search(r"\bmusic\b", lower)
-            and re.search(r"\b(?:like|likes|liked|enjoy|enjoys)\b", lower)
-        )
-    ) and re.search(
+    if re.search(r"\b(?:songs?|tracks?)\b", lower) and re.search(
         r"\b(?:like|likes|liked|enjoy|enjoys|favorite|favourite)\b", lower
     ):
         return "What songs does James like?"
+
+    if re.search(r"\bmusci\b", question.lower()) and re.search(
+        r"\b(?:like|likes|liked|enjoy|enjoys|favorite|favourite)\b", lower
+    ):
+        return "What songs does James like?"
+
+    if re.search(r"\bmusic\b", lower) and re.search(
+        r"\b(?:like|likes|liked|enjoy|enjoys|favorite|favourite)\b", lower
+    ):
+        return "What music does James like?"
 
     if re.search(r"\bbands?\b", lower) and not re.search(r"\bartists?\b", lower) and re.search(
         r"\b(?:like|likes|liked|enjoy|enjoys|favorite|favourite)\b", lower
@@ -314,6 +349,10 @@ def build_query_plan(question: str) -> QueryPlan:
         retrieval_query = "digital drawing creative outlet hobbies"
     elif "publication" in intent.entities:
         retrieval_query = "Curieux Academic Journal publication research paper"
+    elif "research_overview" in intent.entities:
+        retrieval_query = "Writing Essays research LLM hallucination histology Uniswap Lumiere"
+    elif "favorites_overview" in intent.entities:
+        retrieval_query = "favorite games anime music food season place"
     elif "anime_influence" in intent.entities:
         retrieval_query = "Anime influence visual styles Japanese fashion"
     elif "photographed_places" in intent.entities:
