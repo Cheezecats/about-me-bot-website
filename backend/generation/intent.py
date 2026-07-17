@@ -24,7 +24,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b(?:personality|person|like\s+as\s+a\s+person|values?|beliefs?|mindset|aspiration|aspirations|future\s+(?:plans?|academic\s+interests?)|academic\s+interests?)\b", "personality"),
     (r"\b(?:contact|email|e-mail|youtube|github|bilibili|socials?|website|channel)\b", "contact"),
     (r"\b(?:videos?|vlogs?|video\s+projects?)\b", "videos"),
-    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographs?|photo|photos?|picture|pictures?|videograph|video|film|filmed|filming|gear)\b", "photography"),
+    (r"\b(?:camera|cameras|lens|lenses|photograph|photography|photographed|photographs?|photo|photos?|picture|pictures?|videograph|video|film|filmed|filming|gear)\b", "photography"),
     (r"\b(?:favorite|favourite)\s+(?:game|games)\b|\b(?:game|games|gaming|apex|valorant|csgo|cyberpunk)\b", "games"),
     (r"\b(?:food|eat|eating|ramen|ice cream)\b", "food"),
     (r"\b(?:season|winter|summer|spring|autumn|fall)\b", "season"),
@@ -36,7 +36,7 @@ _TOPIC_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b(?:essay|essays|paper|papers|research|writing|written|wrote|write|ia|internal assessment)\b", "writing"),
     (r"\b(?:award|awards|achievement|achievements|accomplishment|accomplishments|won|victory|medal)\b", "achievements"),
     (r"\b(?:favorite|favourite)\s+(?:anime|movie|movies|film|films|book|books|series|place|subject|subjects)\b", "favorites"),
-    (r"\b(?:school|study|studies|education|curriculum|grade|ibdp|igcse|subjects?)\b", "education"),
+    (r"\b(?:school|study|studies|education|curriculum|grade|graduat(?:e|ion)|ibdp|igcse|subjects?)\b", "education"),
     (r"\b(?:project|projects|built|created|developed|skills?|programming|code|coding|language|python|typescript|solidity)\b", "projects"),
 )
 
@@ -138,6 +138,11 @@ def detect_intent(question: str) -> QueryIntent:
             "camera" if re.search(r"\bcameras?\b", lower) else None,
             "lens" if re.search(r"\blens(?:es)?\b", lower) else None,
             "instrument" if re.search(r"\b(?:instrument|guitar)\b", lower) else None,
+            "photographed_places" if re.search(
+                r"\b(?:where|what\s+(?:places?|locations?)|which\s+(?:places?|countries?))\b", lower
+            ) and re.search(
+                r"\b(?:photograph(?:y|ed|s)?|photo(?:s)?|picture(?:s)?|filmed|shot)\b", lower
+            ) else None,
             "competitive" if "competitive" in lower else None,
             "non-competitive" if "non-competitive" in lower or "noncompetitive" in lower else None,
             "ai" if re.search(r"\b(?:ai|llm|machine learning|computer vision)\b", lower) else None,

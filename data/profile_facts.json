@@ -98,6 +98,7 @@
     "additional_cameras": ["DJI Action 4", "iPhone 13 Pro"],
     "lenses": ["NIKKOR 24-120mm F4 S", "NIKKOR 85mm F1.8"]
   },
+  "photographed_locations": ["Hokkaido, Japan", "Tuscany, Italy", "Athens, Greece"],
   "sports": [
     {"name": "skiing", "started": 2013},
     {"name": "ice hockey", "started": 2015, "position": "defender"},

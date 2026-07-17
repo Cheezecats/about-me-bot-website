@@ -60,7 +60,8 @@ _DOMAIN_WORDS = (
     "favorite", "favorites", "favourite", "instrument", "camera", "cameras", "lenses",
     "lens", "music", "songs", "song", "bands", "band", "artists", "artist",
     "projects", "project", "essays", "essay", "sports", "sport", "travel",
-    "traveled", "visited", "rank", "games", "game", "guitar", "education",
+    "traveled", "visited", "rank", "games", "game", "gaming", "videogame", "videogames",
+    "photographed", "photographing", "photos", "pictures", "guitar", "education",
     "school", "season", "food", "dislikes", "dislike", "anime", "movie",
     "movies", "film", "films", "book", "books", "series", "place", "subject",
     "subjects", "ide", "editor", "editors", "vscode", "zed", "workbuddy", "trae",
@@ -114,7 +115,10 @@ def _canonical_question(question: str) -> str:
         return "When will James graduate?"
     if re.search(r"\b(?:what\s+subjects?.*(?:study|take)|(?:hl|higher\s+level)\s+subjects?)\b", lower):
         return "What Higher Level subjects does James study?"
-    if re.search(r"\b(?:what\s+does\s+james\s+want\s+to\s+study|future\s+(?:plans?|interests?)|aspirations?)\b", lower):
+    if re.search(
+        r"\b(?:what\s+does\s+james\s+want\s+to\s+study|future\s+(?:academic\s+)?(?:plans?|interests?)|academic\s+interests?|aspirations?)\b",
+        lower,
+    ):
         return "What are James's future academic interests?"
     if re.search(r"\b(?:does\s+(?:james|he)\s+draw|digital\s+drawing|drawing\s+hobby)\b", lower):
         return "Does James do digital drawing?"
@@ -124,6 +128,13 @@ def _canonical_question(question: str) -> str:
         return "How has anime influenced James's visual style?"
     if re.search(r"\b(?:best|strongest|better)\s+sport\b", lower):
         return "What sport is James best at?"
+
+    if re.search(
+        r"\b(?:where|what\s+(?:places?|locations?)|which\s+(?:places?|countries?))\b", lower
+    ) and re.search(
+        r"\b(?:photograph(?:y|ed|s)?|photo(?:s)?|picture(?:s)?|filmed|shot)\b", lower
+    ):
+        return "Where has James photographed?"
 
     destination_rules = (
         (r"\b(?:italy|tuscany)\b", "What did James do in Italy?"),
@@ -166,6 +177,7 @@ def _canonical_question(question: str) -> str:
     # curated summary. Otherwise "anime" can retrieve a secondary paragraph
     # and bypass the deterministic formatter used for the favorite fact.
     favorite_topic_rules = (
+        (r"\b(?:game|games|gaming|videogame|videogames)\b", "What are James's favorite games?"),
         (r"\banime\b", "What is James's favorite anime?"),
         (r"\b(?:movie|movies|film|films)\b", "What is James's favorite movie?"),
         (r"\b(?:book|books|book\s+series|series)\b", "What is James's favorite book series?"),
@@ -177,6 +189,10 @@ def _canonical_question(question: str) -> str:
             re.search(pattern, lower)
             and re.search(r"\b(?:like|likes|favorite|favourite|enjoy|enjoys|love|loves|watch|watched|read|reads|reading)\b", lower)
             and not re.search(r"\b(?:influence|influenced|impact|style)\b", lower)
+            and not (
+                re.search(r"\b(?:game|games|gaming|videogame|videogames)\b", lower)
+                and re.search(r"\b(?:why|because|relax|relaxation|unwind|decompress|social|connect|friends|peers|matter)\b", lower)
+            )
         ):
             return canonical
 
@@ -195,6 +211,11 @@ def _canonical_question(question: str) -> str:
         r"\b(?:what|which|his|james|use|uses|does)\b", lower
     ):
         return "What camera and lenses does James use?"
+
+    if re.search(r"\blens(?:es)?\b", lower) and re.search(
+        r"\b(?:what|which|his|james|use|uses|does)\b", lower
+    ):
+        return "What lenses does James use?"
 
     if not re.search(r"\blens(?:es)?\b", lower) and re.search(r"\bcameras?\b", lower) and re.search(
         r"\b(?:what|which|his|james|use|uses|does)\b", lower
@@ -295,6 +316,8 @@ def build_query_plan(question: str) -> QueryPlan:
         retrieval_query = "Curieux Academic Journal publication research paper"
     elif "anime_influence" in intent.entities:
         retrieval_query = "Anime influence visual styles Japanese fashion"
+    elif "photographed_places" in intent.entities:
+        retrieval_query = "photographed Japan Hokkaido Italy Tuscany Greece Athens"
     destination_queries = {
         "travel_italy": "Italy Tuscany sunset photography",
         "travel_greece": "Greece Athens Ionian Sea photography video",
@@ -307,6 +330,8 @@ def build_query_plan(question: str) -> QueryPlan:
         if entity in intent.entities and intent.topic == "travel":
             retrieval_query = query
             break
+    if "lens" in intent.entities:
+        retrieval_query = "photography camera lenses NIKKOR 24-120mm 85mm"
     if "coding_origin" in intent.entities:
         retrieval_query = "Self-taught Python during middle school programming"
     elif "gaming_reason" in intent.entities:

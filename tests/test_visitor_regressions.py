@@ -7,6 +7,7 @@ from backend.generation import answer as answer_module
 from backend.generation.answer import answer_or_refuse
 from backend.generation.conversation import ConversationState
 from backend.generation.query_plan import build_query_plan
+from backend.generation.suggestions import build_follow_up_questions
 from backend.retrieval.bm25 import BM25Index, load_chunks, retrieve
 
 
@@ -53,6 +54,51 @@ def test_camera_and_lens_starter_question_answers_both_parts(runtime):
     assert result["status"] == "answered"
     assert "Nikon Z8" in result["answer"]
     assert "NIKKOR 24-120mm F4 S" in result["answer"]
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("gaming", "Apex Legends"),
+        ("game", "Apex Legends"),
+        ("videogames", "Apex Legends"),
+        ("What are James's future academic interests?", "semiconductors"),
+        ("What lenses does James use?", "NIKKOR 24-120mm F4 S"),
+        ("Where has James photographed?", "Tuscany, Italy"),
+        ("What places has James photographed?", "Athens, Greece"),
+    ],
+)
+def test_reported_meta_bare_and_focused_questions_are_answered(question, expected, runtime):
+    result = ask(question, runtime)
+    assert result["status"] == "answered", result
+    assert expected.lower() in result["answer"].lower(), result
+
+
+def test_bare_gaming_does_not_use_a_secondary_social_gaming_chunk(runtime):
+    result = ask("gaming", runtime)
+    assert result["status"] == "answered"
+    assert "favorite games are" in result["answer"].lower()
+    assert "gaming connects with peers" not in result["answer"].lower()
+
+
+@pytest.mark.parametrize(
+    "seed",
+    [
+        "How does this chat work?",
+        "What are James's favorite games?",
+        "What camera does James use?",
+        "What are James's hobbies?",
+        "What songs does James like?",
+        "Where has James travelled?",
+        "What are James's future academic interests?",
+    ],
+)
+def test_suggested_questions_are_answerable(seed, runtime):
+    plan = build_query_plan(seed)
+    for question in build_follow_up_questions(plan.intent, "answered"):
+        result = ask(question, runtime)
+        assert result["status"] == "answered", (seed, question, result)
+        assert result["answer"] != config.REFUSAL_MESSAGE, (seed, question, result)
 
 
 def test_best_sport_does_not_invent_a_ranking(runtime):
