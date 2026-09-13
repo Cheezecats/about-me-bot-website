@@ -84,3 +84,80 @@ SEMANTIC_CONTRACT_ENABLED=false
 ```
 
 This disables the new contract-aware gate and navigation boundary in the API while leaving the existing query planner available. Restore or omit the variable to return to the default enabled path. No deployment was performed.
+
+## Completion addendum: evidence-scoped drafts and cross-domain explanations
+
+This addendum supersedes the earlier live-model figures above. It records the
+final deterministic hardening performed after that report, without changing the
+protected Workbuddy or Claude audit artifacts.
+
+### Changes in this pass
+
+- Model answers now have to be an exact JSON draft with an answer, resolved
+  relation, and non-empty cited chunk IDs. The IDs are checked for uniqueness,
+  existence, and grounding against the cited chunks only; the service no longer
+  assigns synthetic citations to unstructured model text.
+- Explanatory relations use sentence-level relevance checks. A fact merely
+  adjacent to the subject can no longer supply a causal explanation for a
+  separate fact.
+- Focused-source access is now an explicit entity/relation allowlist instead
+  of permission to answer any relationship about a focused title.
+- A narrow, evidence-extractive path returns a complete reviewed sentence for
+  a single authorized explanatory source. This preserves coordinated evidence
+  such as both documented accessibility mechanisms without relying on local
+  model compression.
+- A resolved `lists` relationship now authorizes the existing reviewed
+  overview renderers even when the visitor phrases it as “how does James
+  describe…”. This is relationship-based, rather than a videos-specific
+  exception, and prevents a supported multi-video overview from reaching the
+  model-draft path.
+- Deterministic interpretation now covers view, motivation, reward/interest,
+  and game-ability wording. The last is a general games-domain rank relation,
+  not an Apex-specific answer exception. Entity-specific retrieval priority is
+  retained so the documented CS-inspiration source is not overwritten by a
+  broad education-reason expansion.
+
+### Final verification
+
+- `./.venv/bin/python -m pytest -q`: **550 passed**.
+- `npm test -- --run`: **14 passed**; `npm run typecheck`, `npm run build`, and
+  `git diff --check` also passed.
+- The 20-case cross-domain semantic fixture, repeated three times through the
+  local API, passed **60/60** (p50 **4.7 ms**, p95 **5.5 ms**). These cases
+  intentionally use the deterministic structured-evidence path, so they prove
+  end-to-end API behavior but are not evidence of model-draft quality.
+- The existing mixed 22-case API fixture, including its two refusal cases,
+  passed **22/22** (p50 **4.5 ms**, p95 **5.4 ms**) on a separate fresh local
+  rate-limit window.
+- `data/live_model_draft_evaluation_cases.jsonl` records 20 answerable
+  overview prompts across hobbies, achievements, videos, music, education,
+  projects, sports, preferences, games, and writing. Before the final
+  overview-rendering correction, all reached the JSON-draft model path; three
+  independent fresh-server runs produced **59/60** strict passes after manual
+  review. The sole safe `grounding_failed` refusal was a videos overview
+  (false refusal **1.7%**), with no accepted unsupported answer, p50
+  **6080.6 ms**, and p95 **8983.5 ms**. After the correction, the same fixture
+  passed **20/20** end to end: 18 prompts used reviewed structured answers and
+  the two favorite-games prompts used and passed the draft path. The previously
+  flaky videos prompts were structured, source-scoped answers.
+
+The mixed and model-draft outputs were manually reviewed. The live report's
+`unexpected_answers` count is only meaningful where a fixture contains
+expected-refusal cases; the model-draft fixture is all answerable, so it must
+not be used to claim a general unsafe-answer rate. The regression tests cover
+empty/unknown/duplicate citations, unrelated citations, unsupported causal
+mixing, broad focused-title access, and the excluded Flappy Bird content.
+
+### Remaining acceptance gaps
+
+The optional model-based *interpreter* remains intentionally unimplemented.
+The existing local generator was evaluated, but no pre-change warm/cold latency
+baseline was captured for a valid percentage-regression comparison. This pass
+also did not add a fresh blind holdout after inspecting the existing corpus or
+repeat the browser interaction smoke test. The pre-correction 20-prompt repeat
+still verifies the draft validator, but a new 20-prompt repeat that all reaches
+the *current* model-routing path would be needed to refresh that exact gate.
+Those gates remain unmet; the test, build, deterministic API, and
+local-generator results above are the verified scope. No commit, push,
+deployment, hosted provider call, runtime-model change, or protected-audit edit
+was made.

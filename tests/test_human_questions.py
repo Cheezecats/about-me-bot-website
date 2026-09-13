@@ -122,7 +122,9 @@ def test_open_ended_and_specific_research_questions_use_the_right_evidence(quest
         # call to obtain the same refusal.
         assert result["reason"] == "unsupported", result
     else:
-        assert result["reason"] == "model_refusal", result
+        assert result["reason"] in {"model_refusal", "structured_evidence"}, result
+        if result["reason"] == "structured_evidence":
+            assert result["sources"][0]["title"] == title, result
 
 
 def test_grade_is_explicitly_a_dated_profile_fact(runtime):

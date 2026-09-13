@@ -82,6 +82,60 @@ CONTRACT_FOCUSED_TITLES: dict[str, frozenset[str]] = {
     "additional_hobbies": frozenset({"Fun fact: cosplay", "3D printer interest", "Founding clubs", "Tactile Book Project"}),
 }
 
+# A focused title is a retrieval hint, not blanket permission to answer any
+# relationship about that title.  These are the relationships its reviewed
+# source can actually support.  `describes` is deliberately narrow: it permits
+# an overview of the named item without turning it into a reason, limitation,
+# preference, or result claim.
+FOCUSED_RELATIONS: dict[str, frozenset[str]] = {
+    "hallucination_evaluator": frozenset({"created", "describes", "lists", "method"}),
+    "histology_benchmark": frozenset({"created", "describes", "lists", "method"}),
+    "histology_paper": frozenset({"describes", "lists", "method", "uses"}),
+    "llm_paper": frozenset({"describes", "lists", "method"}),
+    "physics_ia": frozenset({"describes", "lists", "method"}),
+    "math_ia": frozenset({"describes", "lists", "method"}),
+    "extended_essay": frozenset({"describes", "lists"}),
+    "tok_exhibition": frozenset({"describes", "lists"}),
+    "pc_build": frozenset({"created", "describes", "lists"}),
+    "econ_grapher": frozenset({"created", "describes", "lists"}),
+    "sat_app": frozenset({"created", "describes", "lists"}),
+    "physics_reason": frozenset({"reason"}),
+    "previous_curriculum": frozenset({"describes", "studies"}),
+    "japan_trip": frozenset({"describes", "duration", "visited"}),
+    "hockey_lessons": frozenset({"describes", "learned_by", "reason", "result"}),
+    "failure_view": frozenset({"describes", "reason", "result"}),
+    "engineering_motivation": frozenset({"reason"}),
+    "hardware_interest": frozenset({"reason"}),
+    "tennis_experience": frozenset({"reason"}),
+    "ai_learning": frozenset({"method", "reason", "uses"}),
+    "school_challenge": frozenset({"reason", "describes"}),
+    "democratizing_technology": frozenset({"reason", "method"}),
+    "teamwork_view": frozenset({"likes", "describes"}),
+    "fft_tuner": frozenset({"created", "describes", "method"}),
+    "medical_platform": frozenset({"created", "describes"}),
+    "cs_inspiration": frozenset({"reason", "describes"}),
+    "qiu_competition": frozenset({"describes", "participated"}),
+    "uniswap_project": frozenset({"describes", "method"}),
+    "camera_xinjiang": frozenset({"uses", "describes"}),
+    "video_greece": frozenset({"created", "describes"}),
+    "video_japan": frozenset({"created", "describes"}),
+    "video_xinjiang": frozenset({"created", "describes"}),
+    "travel_greece": frozenset({"visited", "photographed_in", "created", "describes", "lists"}),
+    "travel_italy": frozenset({"visited", "photographed_in", "describes", "lists"}),
+    "travel_japan": frozenset({"visited", "photographed_in", "created", "duration", "describes", "lists"}),
+    "travel_xinjiang": frozenset({"visited", "created", "describes", "lists"}),
+    "travel_russia": frozenset({"visited", "describes", "lists"}),
+    "travel_united_states": frozenset({"visited", "describes", "lists"}),
+    "apex_rank": frozenset({"rank", "describes"}),
+    "aspirations": frozenset({"describes", "lists"}),
+    "higher_level_subjects": frozenset({"studies", "lists"}),
+    "graduation": frozenset({"describes", "when"}),
+    "publication": frozenset({"describes", "participated"}),
+    "drawing": frozenset({"describes", "likes"}),
+    "gaming_reason": frozenset({"reason"}),
+    "additional_hobbies": frozenset({"lists"}),
+}
+
 
 @dataclass(frozen=True)
 class EvidenceCapability:
@@ -108,9 +162,15 @@ def _capability(contract: SemanticContract, intent: Any) -> EvidenceCapability |
         return None
     if domain == "sports" and object_type == "athlete" and relation in {"favorite", "likes"}:
         return None
-    focused_keys = {item[0] for item in FOCUSED_SUBJECTS}
-    if entities and any(entity in focused_keys or entity in CONTRACT_FOCUSED_TITLES for entity in entities):
-        return EvidenceCapability("focused", domain, relation, frozenset({object_type}), evidence_kind="explanatory_evidence")
+    focused_entities = [entity for entity in entities if relation in FOCUSED_RELATIONS.get(entity, frozenset())]
+    if focused_entities:
+        return EvidenceCapability(
+            "focused",
+            domain,
+            relation,
+            frozenset({object_type}),
+            evidence_kind="explanatory_evidence",
+        )
     if domain == "photography" and relation == "favorite" and object_type == "photograph":
         return EvidenceCapability(
             "curated_photo_selection", domain, relation, frozenset({"photograph"}),
@@ -186,10 +246,6 @@ def _capability(contract: SemanticContract, intent: Any) -> EvidenceCapability |
         return EvidenceCapability("histology_paper_method", domain, relation, frozenset({"paper"}), frozenset({"Histology classification research paper"}), frozenset({"writing"}))
     if domain == "writing" and relation in {"lists", "count"}:
         return EvidenceCapability("writing_overview", domain, relation, frozenset({"paper", "unresolved"}), frozenset({"Writing & Essays"}), frozenset({"writing"}))
-
-    focused_keys = {item[0] for item in FOCUSED_SUBJECTS}
-    if entities and any(entity in focused_keys for entity in entities):
-        return EvidenceCapability("focused", domain, relation, frozenset({object_type}), evidence_kind="explanatory_evidence")
 
     # Preserve positive access to the remaining curated overview domains.
     overview_titles = {

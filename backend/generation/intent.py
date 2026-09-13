@@ -272,7 +272,7 @@ def derive_semantic_contract(
 
     if re.search(r"\b(?:what\s+(?:did|has)|lessons?)\b.*\blearn\w*\b.*\bfrom\b", lower):
         relation = "reason"
-    elif re.search(r"\b(?:highest|peak|rank|ranking)\b", lower) and domain == "games":
+    elif re.search(r"\b(?:highest|peak|rank|ranking|how\s+good)\b", lower) and domain == "games":
         relation = "rank"
     elif re.search(r"\b(?:limitations?|drawbacks?|weaknesses?)\b", lower):
         relation = "limitations"
@@ -280,9 +280,16 @@ def derive_semantic_contract(
         relation = "result"
     elif re.search(r"\b(?:results?|findings?|conclusions?)\b", lower):
         relation = "result"
+    elif re.search(r"\b(?:motivat\w*|inspir\w*)\b", lower):
+        relation = "reason"
+    elif re.search(r"\bhow\s+(?:does|do)\b.*\bthink\s+about\b", lower):
+        relation = "describes"
     elif re.search(r"\b(?:why|reason|because)\b", lower):
         relation = "reason"
-    elif re.search(r"\b(?:what\s+does|what\s+do)\b.*\b(?:like|enjoy|get)\b.*\b(?:about|from)\b|\bwhat\s+makes\b", lower):
+    elif re.search(
+        r"\bwhat\s+(?:(?:does|do)\s+\w+\s+)?(?:like|enjoy|get|find|interest\w*|appeal\w*|reward\w*)\b.*\b(?:about|from)\b|\bwhat\s+makes\b",
+        lower,
+    ):
         relation = "reason"
     elif re.search(r"\b(?:how\s+(?:did|does|was)|method|methodology|approach|technique|way)\b", lower) and re.search(
         r"\b(?:paper|research|histology|build|built|work|study)\b", lower

@@ -99,7 +99,9 @@ Focused document answers run separately. These are the operators supported
 by the broad curated summaries; other questions continue to grounded generation.
 """
     contract = getattr(intent, "contract", None)
-    if contract is not None and contract.relation in {"learned_by", "method", "reason", "result", "started", "current_participation", "photographed_in"}:
+    if contract is not None and contract.relation in {
+        "learned_by", "method", "reason", "result", "started", "current_participation", "photographed_in", "lists",
+    }:
         return True
     if intent.question_operator == "why":
         return "gaming_reason" in intent.entities or intent.topic == "season"
