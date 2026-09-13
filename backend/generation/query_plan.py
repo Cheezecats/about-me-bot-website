@@ -558,7 +558,11 @@ def build_query_plan(question: str) -> QueryPlan:
             retrieval_query = "Education Higher Level subjects Computer Science Mathematics Physics"
         elif intent.contract.domain == "education" and intent.contract.relation == "favorite":
             retrieval_query = "Favorite school subject Physics"
-        elif intent.contract.domain == "education" and intent.contract.relation == "reason":
+        elif (
+            intent.contract.domain == "education"
+            and intent.contract.relation == "reason"
+            and "cs_inspiration" not in intent.entities
+        ):
             retrieval_query = "Physics teacher hands-on activities"
         elif intent.contract.domain == "travel" and intent.contract.relation == "favorite":
             retrieval_query = "Favorite place Japan Tokyo"

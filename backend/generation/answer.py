@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import time
 import threading
@@ -61,20 +62,55 @@ class GeneratedDraft:
     answered_relation: str
     evidence_ids: tuple[str, ...]
 
+    def cited_chunks(self, context_chunks: list[dict]) -> list[dict]:
+        """Resolve cited IDs in draft order after validation has checked them."""
+
+        by_id = {str(chunk.get("chunk_id", "")): chunk for chunk in context_chunks}
+        return [by_id[evidence_id] for evidence_id in self.evidence_ids if evidence_id in by_id]
+
     def validate(self, contract: SemanticContract | None, context_chunks: list[dict]) -> bool:
         if contract is None or not self.answer.strip():
             return False
         available_ids = {str(chunk.get("chunk_id", "")) for chunk in context_chunks}
-        if not set(self.evidence_ids).issubset(available_ids):
+        if (
+            not self.evidence_ids
+            or len(set(self.evidence_ids)) != len(self.evidence_ids)
+            or not set(self.evidence_ids).issubset(available_ids)
+        ):
             return False
         # The declared relation is metadata for diagnostics, never proof of
         # correctness. Content-level grounding and contract relevance below
         # remain mandatory.
         if self.answered_relation != contract.relation:
             return False
-        return check_grounding(self.answer, context_chunks) and check_contract_relevance(
-            self.answer, contract, context_chunks
+        cited_chunks = self.cited_chunks(context_chunks)
+        return check_grounding(self.answer, cited_chunks) and check_contract_relevance(
+            self.answer, contract, cited_chunks
         )
+
+
+def _parse_generated_draft(raw: str) -> GeneratedDraft | None:
+    """Accept only the compact, schema-shaped draft requested from the model."""
+
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or set(payload) != {"answer", "answered_relation", "evidence_ids"}:
+        return None
+    answer = payload.get("answer")
+    relation = payload.get("answered_relation")
+    evidence_ids = payload.get("evidence_ids")
+    if (
+        not isinstance(answer, str)
+        or not answer.strip()
+        or not isinstance(relation, str)
+        or not relation.strip()
+        or not isinstance(evidence_ids, list)
+        or not all(isinstance(evidence_id, str) and evidence_id.strip() for evidence_id in evidence_ids)
+    ):
+        return None
+    return GeneratedDraft(answer=answer.strip(), answered_relation=relation.strip(), evidence_ids=tuple(evidence_ids))
 
 
 def _result(
@@ -110,7 +146,11 @@ def _build_messages(
     history: list[dict] | None = None,
     contract: SemanticContract | None = None,
 ) -> list[dict]:
-    context = build_context(context_chunks)
+    valid_evidence_ids = [str(chunk.get("chunk_id", "")) for chunk in context_chunks]
+    context = "\n\n".join(
+        f"SOURCE ID: {chunk.get('chunk_id', '')}\nSOURCE TEXT: {chunk.get('text', '')}"
+        for chunk in context_chunks
+    )
     contract_text = ""
     if contract is not None:
         relation_guidance = {
@@ -133,13 +173,21 @@ def _build_messages(
         "Prefer one concise sentence, or a short bullet list when the question asks for multiple items. "
         "Do not add a concluding sentence that repeats the question or the answer. "
         "Answer only the topic asked about; include the relevant specifics and ignore unrelated context. "
+        "Write one complete, standalone answer sentence; never respond with only a heading, a topic name, or a quote fragment. "
+        "For a reason, include the documented reason, purpose, or outcome. For a comparison, name the preferred side and its documented criterion. "
+        "When one cited sentence names multiple distinct mechanisms that answer the question, include each of them. "
         "Speak about James in the third person, including when the evidence quotes him saying I or my. "
         "Use normal spelling even if the user made a typo. "
         "Never mention the context or say 'the provided context'. "
         "Do not infer ages from years, favorites from general usage, or relationships between separate facts. "
-        "Choose one: give a supported answer, OR, if the context does not directly answer the question, respond exactly: "
-        f"\"{config.REFUSAL_MESSAGE}\""
-        " Never append that refusal to an answer supported by the context."
+        "Return exactly one JSON object and no Markdown or surrounding text. It must have exactly these fields: "
+        "{\"answer\": string, \"answered_relation\": string, \"evidence_ids\": [string]}. "
+        "For a supported answer, answered_relation must exactly equal the resolved relation and evidence_ids must list only the IDs "
+        "of sentences that directly support the answer. Do not cite a nearby but unrelated fact. "
+        f"The only valid evidence_ids are: {json.dumps(valid_evidence_ids)}. Copy an ID exactly from that list; "
+        "never put a source sentence, label, quotation, or bracketed context in evidence_ids. "
+        "If the context does not directly answer the question, set answer exactly to "
+        f"\"{config.REFUSAL_MESSAGE}\" and use an empty evidence_ids list."
     )
     messages = [{"role": "system", "content": config.GROUNDING_SYSTEM_PROMPT}]
     # The current question has already been resolved against session memory.
@@ -199,26 +247,26 @@ def _call_groq(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
 
 def generate_answer(
     question: str, context_chunks: list[dict], history: list[dict] | None = None,
-    *, timeout: float = OLLAMA_TIMEOUT,
+    *, contract: SemanticContract | None = None, timeout: float = OLLAMA_TIMEOUT,
 ) -> tuple[str, bool]:
     if not context_chunks:
         return config.REFUSAL_MESSAGE, False
     if timeout <= 0 or not _generation_slots.acquire(blocking=False):
         return config.UNAVAILABLE_MESSAGE, True
     try:
-        # Derive the same deterministic contract used by the public request
-        # path. This preserves the stable three-argument call surface used by
-        # integrations while ensuring model prompts cannot silently discard
-        # the requested relation or object type.
-        contract = build_query_plan(question).intent.contract if config.SEMANTIC_CONTRACT_ENABLED else None
-        messages = _build_messages(question, context_chunks, history, contract)
+        # The public path passes its already resolved contract.  Direct callers
+        # retain the three-argument surface and derive one only when needed.
+        resolved_contract = contract
+        if resolved_contract is None and config.SEMANTIC_CONTRACT_ENABLED:
+            resolved_contract = build_query_plan(question).intent.contract
+        messages = _build_messages(question, context_chunks, history, resolved_contract)
         if config.LLM_BACKEND == "ollama":
             return _call_ollama(messages, timeout=timeout), False
         if config.LLM_BACKEND == "groq":
             safe_chunks = _sanitize_context_for_external(context_chunks)
             if not safe_chunks:
                 return config.REFUSAL_MESSAGE, False
-            return _call_groq(_build_messages(question, safe_chunks, contract=contract), timeout=timeout), False
+            return _call_groq(_build_messages(question, safe_chunks, contract=resolved_contract), timeout=timeout), False
         raise ValueError(f"Unknown LLM_BACKEND: {config.LLM_BACKEND}")
     except Exception as exc:
         logger.warning("Answer generation unavailable (%s)", type(exc).__name__)
@@ -342,6 +390,41 @@ def _select_context_chunks(
     return reranked_chunks[:CONTEXT_TOP_N]
 
 
+def _format_single_source_explanation(
+    contract: SemanticContract | None,
+    capability: object | None,
+    context_chunks: list[dict],
+) -> str | None:
+    """Return one complete reviewed explanation without model compression.
+
+    This path is deliberately limited to a single capability-authorized source
+    and explanatory relationships. It preserves coordinated evidence (such as
+    two documented accessibility mechanisms) that a small local model can
+    otherwise compress into an incomplete answer.
+    """
+
+    if (
+        contract is None
+        or getattr(capability, "evidence_kind", None) != "explanatory_evidence"
+        or contract.relation not in {"describes", "reason", "result", "method", "uses", "likes"}
+        or len(context_chunks) != 1
+    ):
+        return None
+    source_text = extractive_answer(context_chunks[0]).strip()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n+", source_text):
+        candidate = sentence.strip()
+        if not candidate or not check_grounding(candidate, context_chunks) or not check_contract_relevance(
+            candidate, contract, context_chunks
+        ):
+            continue
+        # Preserve an extractive answer while making source fragments readable
+        # as a standalone third-person sentence.
+        if re.match(r"^(?:enjoys|regularly uses|describes|reflects|started)\b", candidate, re.IGNORECASE):
+            candidate = f"James {candidate[:1].lower()}{candidate[1:]}"
+        return attribute_profile_quote(candidate, context_chunks)
+    return None
+
+
 def answer_or_refuse(
     question: str,
     reranked_chunks: list[dict],
@@ -401,6 +484,7 @@ def answer_or_refuse(
     # Retrieval is allowed to be broad, but only evidence authorized for the
     # contract may reach a formatter or the model. Unsupported relationships
     # stop here so a related summary cannot become a substitute answer.
+    capability = None
     if config.SEMANTIC_CONTRACT_ENABLED and intent.contract is not None:
         capability = capability_for(intent.contract, intent)
         if capability is None:
@@ -450,47 +534,85 @@ def answer_or_refuse(
             reason="structured_fact",
         )
 
+    explanatory = _format_single_source_explanation(intent.contract, capability, top_chunks)
+    if explanatory is not None and not _is_compound_request(question):
+        elapsed = round((time.perf_counter() - started) * 1000, 1)
+        return _result(
+            "answered",
+            explanatory,
+            confidence=top_score,
+            sources=sources,
+            total_ms=elapsed,
+            reason="structured_evidence",
+        )
+
+    # Keep the resolved request immutable through generation.  This prevents a
+    # second planner pass from dropping inherited subjects or constraints.
+    model_contract = (
+        intent.contract or build_query_plan(semantic_question).intent.contract
+        if config.SEMANTIC_CONTRACT_ENABLED
+        else None
+    )
     generation_started = time.perf_counter()
     generation_options = {"timeout": generation_timeout} if generation_timeout is not None else {}
-    answer_text, fallback_used = generate_answer(semantic_question, top_chunks, history, **generation_options)
-    generation_ms = round((time.perf_counter() - generation_started) * 1000, 1)
-    filtered = normalize_refusal(apply_pii_filter(attribute_profile_quote(answer_text, top_chunks)))
-
-    if top_chunks and _is_structured_summary(top_chunks[0]) and (
-        filtered == config.REFUSAL_MESSAGE
-        or re.search(r"\bfull\s+name\s+project\b", filtered, flags=re.IGNORECASE)
-        or not _check_grounding(filtered, top_chunks)
-    ):
-        structured_fallback = format_structured_answer(semantic_question, top_chunks, intent)
-        if structured_fallback is not None:
-            filtered = structured_fallback
-
-    draft = GeneratedDraft(
-        answer=filtered,
-        answered_relation=intent.relation,
-        evidence_ids=tuple(str(chunk.get("chunk_id", "")) for chunk in top_chunks),
+    answer_text, fallback_used = generate_answer(
+        semantic_question,
+        top_chunks,
+        history,
+        contract=model_contract,
+        **generation_options,
     )
+    generation_ms = round((time.perf_counter() - generation_started) * 1000, 1)
+    draft: GeneratedDraft | None = None
+    filtered = config.REFUSAL_MESSAGE
+
     if fallback_used:
         status = "unavailable"
         filtered = config.UNAVAILABLE_MESSAGE
         reason = "llm_unavailable"
-    elif filtered == config.REFUSAL_MESSAGE:
-        status = "refused"
-        reason = "model_refusal"
-    elif config.SEMANTIC_CONTRACT_ENABLED and not draft.validate(intent.contract, top_chunks):
-        status = "refused"
-        filtered = config.REFUSAL_MESSAGE
-        reason = "grounding_failed"
     else:
-        status = "answered"
-        reason = "generated"
+        # The rollback flag deliberately preserves the established plain-text
+        # generation path.  The evidence-scoped draft protocol is active only
+        # with the semantic-contract boundary enabled.
+        raw_refusal = normalize_refusal(apply_pii_filter(answer_text))
+        if raw_refusal == config.REFUSAL_MESSAGE:
+            status = "refused"
+            reason = "model_refusal"
+        elif not config.SEMANTIC_CONTRACT_ENABLED:
+            filtered = raw_refusal
+            status = "answered"
+            reason = "generated"
+        else:
+            # A plain refusal remains backward-compatible with older local
+            # models; every non-refusal response must be a structured draft.
+            draft = _parse_generated_draft(answer_text)
+            if draft is None:
+                status = "refused"
+                reason = "invalid_draft"
+            else:
+                filtered = normalize_refusal(apply_pii_filter(attribute_profile_quote(draft.answer, top_chunks)))
+                draft = replace(draft, answer=filtered)
+                if filtered == config.REFUSAL_MESSAGE:
+                    status = "refused"
+                    reason = "model_refusal"
+                elif not draft.validate(model_contract, top_chunks):
+                    status = "refused"
+                    filtered = config.REFUSAL_MESSAGE
+                    reason = "grounding_failed"
+                else:
+                    status = "answered"
+                    reason = "generated"
 
     elapsed = round((time.perf_counter() - started) * 1000, 1)
     return _result(
         status,
         filtered,
         confidence=top_score,
-        sources=sources if status == "answered" else [],
+        sources=(
+            _build_sources(draft.cited_chunks(top_chunks))
+            if status == "answered" and draft is not None
+            else sources if status == "answered" and not config.SEMANTIC_CONTRACT_ENABLED else []
+        ),
         fallback_used=fallback_used,
         total_ms=elapsed,
         generation_ms=generation_ms,

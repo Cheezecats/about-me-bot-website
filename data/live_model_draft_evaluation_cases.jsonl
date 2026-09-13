@@ -1,0 +1,20 @@
+{"question":"How does James describe his hobbies?","expected_status":"answered","terms":["photography"]}
+{"question":"How would James describe his hobbies?","expected_status":"answered","terms":["photography"]}
+{"question":"How does James describe his achievements?","expected_status":"answered","terms":["Physics"]}
+{"question":"How would James describe his achievements?","expected_status":"answered","terms":["Physics"]}
+{"question":"How does James describe his videos?","expected_status":"answered","terms":["video"]}
+{"question":"How would James describe his videos?","expected_status":"answered","terms":["video"]}
+{"question":"How does James describe his music?","expected_status":"answered","terms":["song"]}
+{"question":"How would James describe his music?","expected_status":"answered","terms":["song"]}
+{"question":"How does James describe his education?","expected_status":"answered","terms":["Computer Science"]}
+{"question":"How would James describe his education?","expected_status":"answered","terms":["Computer Science"]}
+{"question":"How does James describe his projects?","expected_status":"answered","terms":["project"]}
+{"question":"How would James describe his projects?","expected_status":"answered","terms":["project"]}
+{"question":"How does James describe his sports?","expected_status":"answered","terms":["tennis"]}
+{"question":"How would James describe his sports?","expected_status":"answered","terms":["tennis"]}
+{"question":"How does James describe his favorite things?","expected_status":"answered","terms":["favorite"]}
+{"question":"How would James describe his favorite things?","expected_status":"answered","terms":["favorite"]}
+{"question":"How does James describe his favorite games?","expected_status":"answered","terms":["Apex"]}
+{"question":"How would James describe his favorite games?","expected_status":"answered","terms":["Apex"]}
+{"question":"How does James describe his writing?","expected_status":"answered","terms":["research"]}
+{"question":"How would James describe his writing?","expected_status":"answered","terms":["research"]}

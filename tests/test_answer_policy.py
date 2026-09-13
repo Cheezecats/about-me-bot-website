@@ -112,7 +112,7 @@ def test_structured_summary_can_replace_a_model_refusal(monkeypatch):
     monkeypatch.setattr(
         answer,
         "generate_answer",
-        lambda question, context_chunks, history=None: (
+        lambda question, context_chunks, history=None, **kwargs: (
             answer.config.REFUSAL_MESSAGE,
             False,
         ),
@@ -285,8 +285,8 @@ def test_bm25_fallback_does_not_apply_neural_confidence_threshold(monkeypatch):
     monkeypatch.setattr(
         answer,
         "generate_answer",
-        lambda question, context_chunks, history=None: (
-            "James uses a Nikon camera.",
+        lambda question, context_chunks, history=None, **kwargs: (
+            '{"answer":"James uses a Nikon camera.","answered_relation":"uses","evidence_ids":["camera"]}',
             False,
         ),
     )
@@ -326,7 +326,7 @@ def test_generation_failure_does_not_return_raw_context(monkeypatch):
     monkeypatch.setattr(
         answer,
         "generate_answer",
-        lambda question, context_chunks, history=None: (context_chunks[0]["text"], True),
+        lambda question, context_chunks, history=None, **kwargs: (context_chunks[0]["text"], True),
     )
     result = answer.answer_or_refuse(
         "What camera does James use?",

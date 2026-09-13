@@ -122,6 +122,40 @@ def check_contract_relevance(answer: str, contract, context_chunks: list[dict]) 
         return any(term in lower for term in ("japan", "greece", "italy", "xinjiang", "tuscany", "athens", "hokkaido"))
     if relation == "created" and object_type == "project" and getattr(contract, "constraints", {}).get("technology") == "python":
         return "python" in lower or any(term in lower for term in aliases["project"] if term in context)
+    # Explanatory relations need a single cited sentence that actually carries
+    # the requested relationship.  Whole-chunk lexical overlap is insufficient:
+    # it allowed a model to turn a nearby biographical sentence (for example,
+    # an AI-writing contest) into the cause of a separate documented activity.
+    relation_cues = {
+        "reason": (
+            "because", "since", "purpose", "reason", "for ", "helps", "enjoy", "interest", "motivat",
+            "appeal", "aim", "result", "best part", "challeng", "reward", "hardest", "difficult", "struggl",
+        ),
+        "result": ("result", "lead", "outcome", "therefore", "so "),
+        "method": ("using", "through", "via", "self-taught", "tutorial", "method", "approach", "architecture"),
+        "uses": ("uses", "using", "use ", "for ", "through", "via"),
+    }
+    cues = relation_cues.get(relation)
+    if cues:
+        answer_terms = _grounding_terms(answer)
+        if not answer_terms:
+            return False
+        # A bare restatement such as “computer hardware” is not an explanation
+        # of why that topic matters.  Longer source-grounded outcome language
+        # remains valid even when it does not use an explicit “because” clause.
+        if relation == "reason" and len(answer_terms) < 3 and not any(cue in lower for cue in cues):
+            return False
+        for sentence in re.split(r"(?<=[.!?])\s+|\n+", context):
+            sentence_lower = sentence.lower()
+            sentence_terms = _grounding_terms(sentence)
+            overlap = len(answer_terms & sentence_terms)
+            if (
+                any(cue in sentence_lower for cue in cues)
+                and overlap >= 1
+                and overlap / len(answer_terms) >= 0.55
+            ):
+                return True
+        return False
     return True
 
 

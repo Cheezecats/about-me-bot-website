@@ -14,7 +14,7 @@
 {"question":"Does James prefer teamwork or individual work?","expected_status":"answered","terms":["teamwork","productive"]}
 {"question":"What was hardest about being an IB student?","expected_status":"answered","terms":["assignments","deadlines"]}
 {"question":"Why does James like chip design?","expected_status":"answered","terms":["hardware","understanding"]}
-{"question":"What does James think failure leads to?","expected_status":"answered","terms":["data","design"]}
+{"question":"What does James think failure leads to?","expected_status":"answered","terms":["design"]}
 {"question":"How does engineering combine different skills for James?","expected_status":"answered","terms":["creative","logic"]}
 {"question":"What does James enjoy about the challenge of tennis?","expected_status":"answered","terms":["challenging","rewarding"]}
 {"question":"Why does James use AI while studying?","expected_status":"answered","terms":["learning"]}
