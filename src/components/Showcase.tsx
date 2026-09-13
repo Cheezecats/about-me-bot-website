@@ -3,112 +3,47 @@ import { motion } from "motion/react";
 import Reveal from "./Reveal";
 import { assetPath } from "../data/content";
 
-type Card = {
-  to: string;
-  title: string;
-  subtitle: string;
-  image: string;
-  meta: string;
-  className: string;
-};
-
-const cards: Card[] = [
-  {
-    to: "/photography",
-    title: "Photography",
-    subtitle: "Light, frame, and silence.",
-    image: assetPath("thumbnails", "2-4jpn (17 - 37).jpg"),
-    meta: "34 frames · Nikon Z8",
-    className: "md:col-span-2 md:row-span-2",
-  },
-  {
-    to: "/videos",
-    title: "Videos",
-    subtitle: "Film & motion.",
-    image: "https://i.ytimg.com/vi/RUg2hiRTRVM/maxresdefault.jpg",
-    meta: "3 films · 8K / 4K",
-    className: "",
-  },
-  {
-    to: "/hobbies",
-    title: "Hobbies",
-    subtitle: "Sport, play, craft.",
-    image: assetPath("thumbnails", "_T6A6134.jpg"),
-    meta: "Ice hockey · Tennis · More",
-    className: "",
-  },
-  {
-    to: "/essays",
-    title: "Essays",
-    subtitle: "Research & writing.",
-    image: assetPath("pdf", "table_his2.png"),
-    meta: "2 papers · ML & medical imaging",
-    className: "md:col-span-2",
-  },
+const cards = [
+  { to: "/photography", title: "Photography", subtitle: "Light, frame, and silence.", image: assetPath("thumbnails", "2-4jpn (17 - 37).jpg"), meta: "34 frames · Nikon Z8", style: "md:col-span-7 md:row-span-2" },
+  { to: "/videos", title: "Videos", subtitle: "Film & motion.", image: "https://i.ytimg.com/vi/RUg2hiRTRVM/maxresdefault.jpg", meta: "3 films · 8K / 4K", style: "md:col-span-5" },
+  { to: "/hobbies", title: "Hobbies", subtitle: "Sport, play, craft.", image: assetPath("thumbnails", "_T6A6134.jpg"), meta: "Ice hockey · Tennis · More", style: "md:col-span-3" },
+  { to: "/essays", title: "Essays", subtitle: "Research & writing.", image: assetPath("pdf", "table_his2.png"), meta: "2 papers · ML & medical imaging", style: "md:col-span-2" },
 ];
 
 export default function Showcase() {
   return (
-    <section id="showcase" className="mx-auto max-w-[1180px] px-6 py-24 sm:px-8 sm:py-32">
+    <section id="showcase" className="relative mx-auto max-w-[1320px] px-5 py-28 sm:px-8 sm:py-36">
       <Reveal>
-        <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="eyebrow">The Showcase</span>
-            <h2 className="mt-3 text-[clamp(1.8rem,5vw,3.2rem)] font-bold leading-[1.02] tracking-[-0.02em]">
-              Explore the work.
-            </h2>
-          </div>
-          <p className="max-w-sm text-[15px] leading-relaxed text-[var(--color-muted)]">
-            Four disciplines, one perspective. Each tile opens a deeper look.
-          </p>
+        <div className="mb-14 grid gap-5 border-b border-[var(--color-edge)] pb-9 sm:grid-cols-[1fr_0.7fr] sm:items-end">
+          <div><span className="cinema-kicker">Selected scenes</span><h2 className="mt-4 text-[clamp(2.8rem,6vw,6rem)] font-semibold leading-[0.87] tracking-[-0.065em]">Look<br className="sm:hidden" /> closer.</h2></div>
+          <p className="max-w-sm text-[15px] leading-relaxed text-[var(--color-muted)] sm:justify-self-end sm:text-right">Four disciplines, held together by an eye for movement, texture, and place.</p>
         </div>
       </Reveal>
-
-      <div className="grid auto-rows-[220px] grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        {cards.map((card, i) => (
-          <Reveal key={card.to} delay={i * 0.08} className={card.className}>
-            <Link to={card.to} className="group block h-full w-full">
-              <motion.div
-                whileHover={{ y: -6 }}
-                transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                className="relative h-full w-full overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-edge)] bg-[var(--color-surface)]"
-              >
-                <img
-                  src={card.image}
-                  alt={card.title}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.06]"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.78) 100%)",
-                  }}
-                />
-                <div className="absolute inset-0 flex flex-col justify-end p-6">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/55">
-                    {card.meta}
-                  </span>
-                  <h3 className="mt-1.5 text-2xl font-bold tracking-tight text-white">
-                    {card.title}
-                  </h3>
-                  <p className="mt-0.5 text-[14px] text-white/70">
-                    {card.subtitle}
-                  </p>
-                  <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-white/0 transition-all duration-300 group-hover:text-white/90">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/15 backdrop-blur-md transition-transform duration-300 group-hover:translate-x-0.5">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 12h14M13 6l6 6-6 6" />
-                      </svg>
-                    </span>
-                  </span>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:grid-rows-[minmax(330px,48vh)_minmax(260px,34vh)]">
+        {cards.map((card, index) => (
+          <Reveal key={card.to} delay={index * 0.07} className={card.style}>
+            <Link to={card.to} className="group block h-full">
+              <motion.article whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300, damping: 24 }} className={`relative h-full min-h-[300px] overflow-hidden border border-[var(--color-edge)] bg-[var(--color-surface)] p-4 shadow-[0_16px_40px_rgba(8,73,135,0.1)] ${index === 0 ? "rounded-[2rem]" : "rounded-[1.35rem]"}`}>
+                <div className={`relative h-full overflow-hidden ${index === 0 ? "rounded-[1.25rem]" : "rounded-xl"}`}>
+                  <img src={card.image} alt={card.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.1s] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.055]" />
+                  <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-[#0c426e]/85 via-[#0c426e]/26 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-between p-5 sm:p-6">
+                    <span className="w-fit rounded-lg bg-white/86 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#163852] backdrop-blur-sm">{card.meta}</span>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75">{card.subtitle}</p>
+                      <div className="mt-2 flex items-end justify-between gap-4"><h3 className="text-[clamp(2rem,4vw,4.7rem)] font-semibold leading-[0.9] tracking-[-0.055em] text-white">{card.title}</h3><span className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-turquoise)] text-[#163852] transition-transform group-hover:translate-x-1 group-hover:-translate-y-1"><Arrow /></span></div>
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
+              </motion.article>
             </Link>
           </Reveal>
         ))}
       </div>
     </section>
   );
+}
+
+function Arrow() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
 }

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import re
+import hashlib
 from pathlib import Path
 
 from backend import config
@@ -24,6 +26,7 @@ class BM25Index:
         self.n_docs = n_docs
         self.k1 = k1
         self.b = b
+        self.corpus_signature: str | None = None
 
     @classmethod
     def build(cls, chunks: list[dict]) -> "BM25Index":
@@ -41,7 +44,9 @@ class BM25Index:
             for tok, freq in tf.items():
                 inverted.setdefault(tok, {})[cid] = freq
         avgdl = (total_len / n_docs) if (n_docs := len(chunks)) else 0.0
-        return cls(inverted, doc_len, avgdl, n_docs)
+        index = cls(inverted, doc_len, avgdl, n_docs)
+        index.corpus_signature = _corpus_signature(chunks)
+        return index
 
     def _idf(self, term: str) -> float:
         n_t = len(self.inverted_index.get(term, {}))
@@ -74,7 +79,7 @@ class BM25Index:
             if postings:
                 candidates.update(postings.keys())
         scored = [(cid, self.score(query, cid)) for cid in candidates]
-        scored.sort(key=lambda x: x[1], reverse=True)
+        scored.sort(key=lambda x: (-x[1], x[0]))
         return scored[:k]
 
     def to_dict(self) -> dict:
@@ -85,11 +90,12 @@ class BM25Index:
             "n_docs": self.n_docs,
             "k1": self.k1,
             "b": self.b,
+            "corpus_signature": self.corpus_signature,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "BM25Index":
-        return cls(
+        index = cls(
             inverted_index=data["inverted_index"],
             doc_len=data["doc_len"],
             avgdl=data["avgdl"],
@@ -97,6 +103,8 @@ class BM25Index:
             k1=data.get("k1", config.BM25_K1),
             b=data.get("b", config.BM25_B),
         )
+        index.corpus_signature = data.get("corpus_signature")
+        return index
 
     def save(self, path: Path) -> None:
         path.write_text(json.dumps(self.to_dict()) + "\n", encoding="utf-8")
@@ -118,6 +126,8 @@ def load_chunks(path: Path | None = None) -> list[dict]:
         # is still present on disk.
         if chunk.get("chunk_id") == "projects_skills_projects_skills_000":
             chunk = {**chunk, "text": chunk["text"].replace(", and a Flappy Bird game.", ".")}
+        if re.search(r"\bflappy\s*bird\b", chunk.get("text", ""), re.IGNORECASE):
+            continue
         public_chunks.append(chunk)
     return public_chunks
 
@@ -203,7 +213,7 @@ def retrieve(
         }:
             summary_bonus += 10.0
         results.append({**c, "score": round(score + heading_bonus + category_bonus + summary_bonus, 4)})
-    results.sort(key=lambda c: c["score"], reverse=True)
+    results.sort(key=lambda c: (-c["score"], c["chunk_id"]))
     return results[:k]
 
 
@@ -217,15 +227,26 @@ def build_and_save() -> BM25Index:
 
 
 def load_or_build() -> BM25Index:
-    """Load a current index, rebuilding it when the chunk source changed."""
+    """Validate indexed content, including the public filter, not just mtimes."""
 
     if (
         config.BM25_INDEX_PATH.exists()
         and config.CHUNKS_PATH.exists()
         and config.BM25_INDEX_PATH.stat().st_mtime_ns >= config.CHUNKS_PATH.stat().st_mtime_ns
     ):
-        return BM25Index.load(config.BM25_INDEX_PATH)
+        try:
+            index = BM25Index.load(config.BM25_INDEX_PATH)
+            if index.corpus_signature == _corpus_signature(load_chunks()):
+                return index
+        except (ValueError, KeyError, TypeError):
+            pass
     return build_and_save()
+
+
+def _corpus_signature(chunks: list[dict]) -> str:
+    # Include tokenization output so alias/stopword changes invalidate old indexes.
+    content = [(chunk["chunk_id"], tokenize(chunk["text"])) for chunk in chunks]
+    return hashlib.sha256(json.dumps(content, ensure_ascii=False).encode()).hexdigest()
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from backend import config
 from backend.generation.intent import QueryIntent, detect_intent
+from backend.generation.contracts import summary_can_answer
+from backend.generation.evidence import focused_chunks, GENERATIVE_ENTITIES
 
 STRUCTURED_SUMMARY_TITLES = frozenset(
     {
@@ -72,7 +74,10 @@ def is_structured_summary(chunk: dict) -> bool:
 def _summary_matches_intent(title: str, intent: QueryIntent) -> bool:
     """Prevent a retrieved summary from answering a different topic."""
 
-    if title == "Favorite season" and intent.topic == "preferences" and "dislikes" in intent.entities:
+    contract = intent.contract
+    topic = intent.topic or (contract.domain if contract is not None else None)
+
+    if title == "Favorite season" and topic == "preferences" and "dislikes" in intent.entities:
         return True
     required_entity = {
         "Favorite anime": "anime",
@@ -83,9 +88,11 @@ def _summary_matches_intent(title: str, intent: QueryIntent) -> bool:
         "Favorite school subject": "school_subject",
         "IDE/editor usage": "ide",
     }.get(title)
-    if required_entity and required_entity not in intent.entities:
+    if required_entity and required_entity not in intent.entities and not (
+        intent.contract is not None and intent.contract.object_type == required_entity
+    ):
         return False
-    return intent.topic in _SUMMARY_TOPICS.get(title, frozenset())
+    return topic in _SUMMARY_TOPICS.get(title, frozenset())
 
 
 def extractive_answer(chunk: dict) -> str:
@@ -108,12 +115,18 @@ def _numbered(items: list[str]) -> str:
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
 
 
-def _format_games(facts: dict, intent: QueryIntent) -> str:
+def _format_games(facts: dict, intent: QueryIntent, question: str) -> str:
     games = facts["favorite_games"]
+    if re.search(r"\b(?:except|other than|excluding)\b.*\bapex\b", question, re.IGNORECASE):
+        remaining = [game for game in games["competitive"] + games["non_competitive"] if game != "Apex Legends"]
+        return "Other documented favorites include:\n\n" + _bullets(remaining)
     if intent.negated and "apex_game" in intent.entities:
         return "No — Apex Legends is one of James's competitive favorite games."
     competitive_only = "competitive" in intent.entities or "competitive" in intent.qualifiers
     noncompetitive_only = "non-competitive" in intent.entities or "non-competitive" in intent.qualifiers
+    if intent.question_operator == "count":
+        selected = games["non_competitive"] if noncompetitive_only else games["competitive"] if competitive_only else games["competitive"] + games["non_competitive"]
+        return f"His profile lists {len(selected)} favorite games: " + ", ".join(selected) + "."
     if competitive_only and not noncompetitive_only:
         if intent.quantity == "one":
             return f"One of James's competitive favorites is {games['competitive'][0]}."
@@ -140,6 +153,8 @@ def _format_games(facts: dict, intent: QueryIntent) -> str:
 
 def _format_music(facts: dict, intent: QueryIntent) -> str:
     music = facts["favorite_music"]
+    contract = intent.contract
+    contract_object = contract.object_type if contract is not None else None
     if "music_overview" in intent.entities:
         return (
             f"James's current favorite song is \"{music['song']}\" by {music['song_artist']}. "
@@ -150,13 +165,17 @@ def _format_music(facts: dict, intent: QueryIntent) -> str:
             f"James's favorite artist is {music['artist']}; his favorite bands are "
             f"{', '.join(music['bands'])}."
         )
+    if contract_object == "artist" or ("artist" in intent.entities and "song" not in intent.entities and "band" not in intent.entities):
+        return f"James's favorite artist is {music['artist']}."
+    if contract_object == "band" or ("band" in intent.entities and "song" not in intent.entities):
+        return f"James's favorite bands are {', '.join(music['bands'])}."
     if "band" in intent.entities and "song" not in intent.entities:
         if intent.quantity == "singular" and "favorite" in intent.qualifiers:
             return (
                 f"James's favorite bands are {', '.join(music['bands'])}; the profile does not rank one above the other."
             )
         return f"James's favorite bands are {', '.join(music['bands'])}."
-    if "song" in intent.entities and "band" not in intent.entities and "artist" not in intent.entities:
+    if contract_object == "song" or ("song" in intent.entities and "band" not in intent.entities and "artist" not in intent.entities):
         return f"James's current favorite song is \"{music['song']}\" by {music['song_artist']}."
     if "artist" in intent.entities and "song" not in intent.entities and "band" not in intent.entities:
         return f"James's favorite artist is {music['artist']}."
@@ -237,13 +256,28 @@ def _format_sports(facts: dict, intent: QueryIntent, question: str) -> str:
         "sport_floorball": "floorball",
         "sport_soccer": "soccer",
     }
-    if intent.question_operator == "when" and re.search(r"\b(?:start|started|begin|began)\b", question, re.IGNORECASE):
+    named = [sport for sport in sports if any(entity in intent.entities and sport["name"] == name for entity, name in sport_entities.items())]
+    if len(named) >= 2 and intent.temporal_relation in {"before", "after"}:
+        ordered = sorted(named, key=lambda sport: question.lower().find(sport["name"].replace("ice ", "")))
+        if any("started" not in sport for sport in ordered):
+            return config.REFUSAL_MESSAGE
+        first, second = ordered[:2]
+        matches = first["started"] < second["started"] if intent.temporal_relation == "before" else first["started"] > second["started"]
+        return f"{'Yes' if matches else 'No'} — James started {first['name']} in {first['started']} and {second['name']} in {second['started']}."
+    after = re.search(r"\bafter\s+(20\d{2})\b", question, re.IGNORECASE)
+    if after:
+        year = int(after.group(1))
+        selected = [sport for sport in started if sport["started"] > year]
+        return (f"Sports with documented start dates after {year}:\n\n" + _bullets([f"{sport['name'].title()} ({sport['started']})" for sport in selected])
+                if selected else f"His profile doesn't list a sport with a start date after {year}.")
+    if intent.relation == "started" and named and intent.temporal_relation not in {"before", "after"} and re.search(r"\b(?:start|started|begin|began|take\s+up)\b", question, re.IGNORECASE):
         for entity, name in sport_entities.items():
             if entity in intent.entities:
                 sport = next((item for item in started if item["name"] == name), None)
                 if sport is None:
-                    return f"James's profile does not document when he started {name}."
-                return f"James started playing {name} in {sport['started']}."
+                    return config.REFUSAL_MESSAGE
+                activity = "skiing" if name == "skiing" else f"playing {name}"
+                return f"James started {activity} in {sport['started']}."
     if "best_sport" in intent.entities:
         return (
             "James plays skiing, ice hockey, tennis, floorball, and soccer, but his public profile "
@@ -257,11 +291,27 @@ def _format_sports(facts: dict, intent: QueryIntent, question: str) -> str:
             f"Sports James started before {intent.before_year}:\n\n"
             + _bullets([f"{sport['name'].title()} ({sport['started']})" for sport in selected])
         )
+    if intent.temporal_relation == "before" and len(named) == 1:
+        target = named[0]
+        earlier = [sport for sport in started if sport["started"] < target["started"]]
+        if earlier:
+            return f"James started {earlier[0]['name']} before {target['name']}."
+        return config.REFUSAL_MESSAGE
     if intent.comparison and re.search(r"\b(?:first|earliest|started first)\b", question, re.IGNORECASE):
         first = min(started, key=lambda sport: sport["started"])
         return f"James started {first['name']} first, in {first['started']}."
     if re.search(r"\bposition", question, re.IGNORECASE):
-        return "James plays ice hockey as a defender and soccer as a forward."
+        selected = named or [sport for sport in sports if "position" in sport]
+        if any("position" not in sport for sport in selected):
+            return config.REFUSAL_MESSAGE
+        return "James plays " + " and ".join(f"{sport['name']} as a {sport['position']}" for sport in selected) + "."
+    if named:
+        return " ".join(
+            f"James {'started skiing' if sport['name'] == 'skiing' else 'started playing ' + sport['name']} in {sport['started']}"
+            + (f" and plays as a {sport['position']}" if "position" in sport else "") + "."
+            if "started" in sport else f"James plays {sport['name']} as a {sport['position']}."
+            for sport in named
+        )
     return "James's sports include:\n\n" + _bullets(
         [f"{sport['name'].title()}" + (f" (started {sport['started']})" if "started" in sport else "") for sport in sports]
     )
@@ -272,12 +322,18 @@ def _format_projects(facts: dict, intent: QueryIntent, question: str) -> str:
         return "James works with:\n\n" + _bullets(facts["programming_languages"])
     if "ai" in intent.entities:
         projects = [project["name"] for project in facts["projects"] if "ai" in project["tags"]]
+        if intent.question_operator == "count":
+            return f"The project overview lists {len(projects)} projects involving AI or machine learning."
         if intent.quantity == "one":
             return f"One AI-related project is the {projects[0]}."
         return "Projects involving AI or machine learning:\n\n" + _numbered(projects)
     if intent.ordinal is not None and intent.ordinal <= len(facts["projects"]):
         project = facts["projects"][intent.ordinal - 1]
         return f"Project {intent.ordinal}: {project['name']}."
+    if intent.question_operator == "count":
+        return f"The curated overview lists {len(facts['projects'])} projects. This is a selection of James's work, not a count of everything he has ever built."
+    if intent.quantity == "one":
+        return f"One of James's projects is his {facts['projects'][0]['name']}."
     return "James's projects include:\n\n" + _numbered([project["name"] for project in facts["projects"]])
 
 
@@ -330,14 +386,14 @@ def _format_destination(chunks: list[dict], intent: QueryIntent) -> str | None:
 def _format_additional_hobbies(chunks: list[dict]) -> str | None:
     """Summarize less-central interests for contextual questions like 'what else?'"""
 
-    by_id = {chunk.get("chunk_id"): chunk for chunk in chunks}
+    by_title = {chunk.get("metadata", {}).get("title"): chunk for chunk in chunks}
     required = {
-        "personality_fun_fact_cosplay_019",
-        "hobbies_3d_printer_interest_009",
-        "hobbies_founding_clubs_006",
-        "hobbies_tactile_book_project_007",
+        "Fun fact: cosplay",
+        "3D printer interest",
+        "Founding clubs",
+        "Tactile Book Project",
     }
-    if not required.issubset(by_id):
+    if not required.issubset(by_title):
         return None
     return (
         "Beyond James's main hobbies, he has also mentioned:\n\n"
@@ -355,13 +411,69 @@ def _has_category(chunks: list[dict], category: str) -> bool:
 def _format_profile_answer(question: str, chunks: list[dict], intent: QueryIntent, facts: dict) -> str | None:
     """Answer high-value public-profile fields without relying on free-form generation."""
 
-    if intent.topic == "bio" and _has_category(chunks, "bio"):
+    if intent.relation == "favorite" and intent.object_type == "photograph":
+        photo_chunk = next(
+            (chunk for chunk in chunks if chunk.get("metadata", {}).get("title") == "Curated photography picks"),
+            None,
+        )
+        if photo_chunk is not None:
+            match = re.search(r"\b(\d+)\s+featured", photo_chunk.get("text", ""))
+            if match:
+                return (
+                    f"James has {match.group(1)} curated photo picks, rather than one documented favorite photograph. "
+                    "You can explore the selection in his photography gallery."
+                )
+
+    if "camera" in intent.entities and "lens" in intent.entities and any(
+        chunk.get("metadata", {}).get("title") == "Photography and videography" for chunk in chunks
+    ):
+        photography = facts["photography"]
+        return (
+            f"James's primary camera is a {photography['primary_camera']}; he also uses a "
+            f"{photography['additional_cameras'][0]} and an {photography['additional_cameras'][1]}. "
+            f"His lenses are a {photography['lenses'][0]} and a {photography['lenses'][1]}."
+        )
+
+    contract = intent.contract
+    if contract is not None:
+        if contract.domain == "photography" and contract.relation == "uses" and contract.object_type in {"camera", "lens"} and any(
+            chunk.get("metadata", {}).get("title") == "Photography and videography" for chunk in chunks
+        ):
+            photography = facts["photography"]
+            if contract.object_type == "lens":
+                return f"James uses a {photography['lenses'][0]} lens and a {photography['lenses'][1]} lens."
+            return f"James's primary camera is a {photography['primary_camera']}. He also uses a {photography['additional_cameras'][0]} and an {photography['additional_cameras'][1]}."
+        if contract.domain == "projects" and contract.relation == "learned_by" and contract.object_type == "method":
+            coding = facts["coding_learning"]
+            return f"James learned {coding['language']} independently during {coding['time']}. He also works with {', '.join(coding['other_languages'][:-1])}, and {coding['other_languages'][-1]}."
+        if contract.domain == "education" and contract.relation == "studies" and contract.object_type == "school_subject":
+            return "James's current Higher Level subjects are:\n\n" + _bullets(facts["education"]["higher_level_subjects"])
+        if contract.domain == "education" and contract.relation == "favorite" and contract.object_type == "school_subject":
+            return _format_favorite_school_subject(facts)
+        if contract.domain == "travel" and contract.relation == "visited" and contract.object_type == "place":
+            return "James has visited:\n\n" + _bullets(facts["travel"]["visited"])
+        if contract.domain == "travel" and contract.relation == "favorite" and contract.object_type == "place":
+            return _format_favorite_place(facts)
+        if contract.domain == "photography" and contract.relation == "photographed_in" and contract.object_type == "place":
+            return "Examples of places James has photographed include:\n\n" + _bullets(facts["photographed_locations"])
+        if contract.domain == "games" and contract.relation == "reason" and contract.object_type == "explanation":
+            return facts["gaming_reasons"]["answer"]
+        if contract.domain == "favorites" and contract.relation == "lists" and contract.object_type == "unresolved":
+            return _format_favorites_overview(facts)
+        if contract.domain == "writing" and contract.relation == "method" and contract.object_type == "paper":
+            paper = next((item for item in chunks if item.get("metadata", {}).get("title") == "Histology classification research paper"), None)
+            if paper is not None:
+                return _body_without_heading(paper)
+        if contract.domain == "sports" and contract.relation == "started" and contract.object_type == "sport":
+            return _format_sports(facts, intent, question)
+
+    if (intent.topic == "bio" or (contract is not None and contract.domain == "bio")) and _has_category(chunks, "bio"):
         profile = facts["public_profile"]
         return (
-            f"{profile['name']} is a {profile['age']}-year-old student living in {profile['location']}. "
+            f"{profile['name']}'s public profile describes him as a {profile['age']}-year-old student living in {profile['location']}. "
             f"He describes himself as a {', '.join(profile['roles'])}; his tagline is “{profile['tagline']}.”"
         )
-    if intent.topic == "personality" and _has_category(chunks, "personality"):
+    if (intent.topic == "personality" or (contract is not None and contract.domain == "personality")) and _has_category(chunks, "personality"):
         if "aspirations" in intent.entities:
             return (
                 "James's documented future academic interests include engineering, semiconductors and aerospace, "
@@ -378,9 +490,11 @@ def _format_profile_answer(question: str, chunks: list[dict], intent: QueryInten
             for chunk in chunks
         )
     ):
-        return "James has photographed in:\n\n" + _bullets(facts["photographed_locations"])
+        return "Examples of places James has photographed include:\n\n" + _bullets(facts["photographed_locations"])
     if "instrument" in intent.entities and _has_category(chunks, "hobbies"):
         guitar = facts["guitar"]
+        if intent.temporal_relation == "continuation":
+            return f"Yes — James's public profile lists electric guitar among his hobbies. He started in {guitar['started']}."
         if intent.temporal_relation == "cessation":
             return (
                 "No — James's profile says he plays electric guitar and started in 2025; "
@@ -394,11 +508,27 @@ def _format_profile_answer(question: str, chunks: list[dict], intent: QueryInten
             r"\b(?:start|started|begin|began)\b", question, re.IGNORECASE
         ):
             return f"James started playing electric guitar in {guitar['started']}."
+    if intent.relation in {"supports", "favorite"} and intent.object_type == "team" and _has_category(chunks, "favorites"):
+        team = facts["favorite_football_team"]
+        return f"James's favorite football team is {team['team']}, {team['detail']}."
+    if intent.relation == "playing_position" and intent.object_type == "position":
+        if re.search(r"\b(?:ice\s+)?hockey\b", question, re.IGNORECASE) and _has_category(chunks, "favorites"):
+            return "James started playing ice hockey in 2015 and plays as a defender."
+        if re.search(r"\bsoccer\b", question, re.IGNORECASE) and _has_category(chunks, "favorites"):
+            return "James plays soccer as a forward."
+        if _has_category(chunks, "favorites") or _has_category(chunks, "sports"):
+            return "James plays ice hockey as a defender and soccer as a forward."
+    if intent.relation == "created" and intent.object_type == "project" and intent.constraints.get("technology") == "python":
+        python_projects = [
+            project["name"] for project in facts["projects"] if "python" in {tag.lower() for tag in project.get("tags", [])}
+        ]
+        if python_projects:
+            return "Projects James built with Python include:\n\n" + _bullets(python_projects)
     if intent.topic == "sports" and _has_category(chunks, "sport") and re.search(
         r"\b(?:ice\s+)?hockey\b", question, re.IGNORECASE
     ):
         return "James started playing ice hockey in 2015 and plays as a defender."
-    if intent.topic == "contact" and _has_category(chunks, "contact"):
+    if (intent.topic == "contact" or (contract is not None and contract.domain == "contact")) and _has_category(chunks, "contact"):
         by_title = {chunk.get("metadata", {}).get("title", ""): chunk for chunk in chunks}
         def contact_value(title: str) -> str:
             chunk = by_title.get(title)
@@ -486,9 +616,11 @@ def format_entity_answer(question: str, chunks: list[dict], intent: QueryIntent)
     title = metadata.get("title", "")
     lower = question.lower()
     facts = load_profile_facts()
-    if "fft_tuner" in intent.entities and category == "projects_skills":
+    if "fft_tuner" in intent.entities and title == "Tune-app (FFT Guitar Tuner)":
+        if re.search(r"\b(?:called|name|named|title)\b", lower):
+            return "James's guitar tuner is called Tune-app (FFT Guitar Tuner), a browser-based FFT Frequency Analyzer."
         return _body_without_heading(chunk)
-    if "medical_platform" in intent.entities and category == "projects_skills":
+    if "medical_platform" in intent.entities and title == "智愈APP (Zhiyu App) — Flutter medical platform":
         return _body_without_heading(chunk)
     if "cs_inspiration" in intent.entities and category == "education":
         return _body_without_heading(chunk)
@@ -558,6 +690,17 @@ def format_structured_answer(
     title = chunk.get("metadata", {}).get("title", "")
     intent = intent or detect_intent(question)
     facts = load_profile_facts()
+    focused = focused_chunks(intent.entities, chunks)
+    if focused:
+        if GENERATIVE_ENTITIES.intersection(intent.entities) or re.search(
+            r"\b(?:results?|conclusions?|limitations?|architecture|hyperparameters?|accuracy|how many|cost|price)\b", question, re.IGNORECASE
+        ):
+            return None
+        if "hockey_lessons" in intent.entities:
+            return "Ice hockey has given James experience with teamwork, handling pressure in intense games, and coping with defeat against stronger opponents."
+        return " ".join(_body_without_heading(item) for item in focused)
+    if not summary_can_answer(question, intent):
+        return None
     profile_answer = _format_profile_answer(question, chunks, intent, facts)
     if profile_answer is not None:
         return profile_answer
@@ -568,7 +711,7 @@ def format_structured_answer(
     if not _summary_matches_intent(title, intent):
         return None
     if title == "Favorite games":
-        return _format_games(facts, intent)
+        return _format_games(facts, intent, question)
     if title in {"Favorite anime", "Anime (top favorites)"}:
         return _format_favorite_anime(facts)
     if title == "Favorite movie":
@@ -587,6 +730,8 @@ def format_structured_answer(
     if title == "Favorite season":
         if "dislikes" in intent.entities:
             dislike = facts["dislikes"][0]
+            if re.search(r"\bwinter\b", question, re.IGNORECASE):
+                return "James's profile lists winter as his favorite season, especially with snow. The season he explicitly dislikes is summer."
             return f"James has explicitly said that he dislikes {dislike['item']} because {dislike['reason']}. I don't have a complete list of things he dislikes."
         season = facts["favorite_season"]
         return f"James's favorite season is {season['primary']}, {season['detail']}."
@@ -633,7 +778,8 @@ def format_structured_answer(
         if "programming_languages" in intent.entities:
             return "James works with:\n\n" + _bullets(facts["programming_languages"])
         return (
-            f"James studies the {education['program']} at {education['school']} and is currently in {education['grade']}. "
+            f"James's profile lists the {education['program']} at {education['school']}, "
+            f"with {education['grade']} recorded for the {education['grade_as_of']}. "
             f"His Higher Level subjects are {', '.join(education['higher_level_subjects'])}."
         )
     if title == "Writing & Essays":

@@ -1,0 +1,135 @@
+[
+  {
+    "id": "photography",
+    "label": "View photography",
+    "kind": "internal",
+    "href": "/photography",
+    "subject": "photography"
+  },
+  {
+    "id": "authors-choice",
+    "label": "Explore James’s picks",
+    "kind": "internal",
+    "href": "/photography#authors-choice",
+    "subject": "authors-choice"
+  },
+  {
+    "id": "videos",
+    "label": "Watch James’s videos",
+    "kind": "internal",
+    "href": "/videos",
+    "subject": "videos"
+  },
+  {
+    "id": "essays",
+    "label": "Read James’s essays",
+    "kind": "internal",
+    "href": "/essays",
+    "subject": "essays"
+  },
+  {
+    "id": "hobbies",
+    "label": "Explore James’s hobbies",
+    "kind": "internal",
+    "href": "/hobbies",
+    "subject": "hobbies"
+  },
+  {
+    "id": "song-youtube",
+    "label": "Listen on YouTube",
+    "kind": "external",
+    "href": "https://www.youtube.com/watch?v=gEpMLJxm9A8",
+    "subject": "song"
+  },
+  {
+    "id": "song-spotify",
+    "label": "Listen on Spotify",
+    "kind": "external",
+    "href": "https://open.spotify.com/track/1VnglsCtWLI4zoUdqSu7ft",
+    "subject": "song"
+  },
+  {
+    "id": "deco27-youtube",
+    "label": "Search YouTube · DECO*27",
+    "kind": "external",
+    "href": "https://www.youtube.com/results?search_query=DECO%2A27",
+    "subject": "deco27"
+  },
+  {
+    "id": "deco27-spotify",
+    "label": "Search Spotify · DECO*27",
+    "kind": "external",
+    "href": "https://open.spotify.com/search/DECO%2A27",
+    "subject": "deco27"
+  },
+  {
+    "id": "miku-youtube",
+    "label": "Search YouTube · Hatsune Miku",
+    "kind": "external",
+    "href": "https://www.youtube.com/results?search_query=Hatsune%20Miku",
+    "subject": "miku"
+  },
+  {
+    "id": "miku-spotify",
+    "label": "Search Spotify · Hatsune Miku",
+    "kind": "external",
+    "href": "https://open.spotify.com/search/Hatsune%20Miku",
+    "subject": "miku"
+  },
+  {
+    "id": "yorushika-youtube",
+    "label": "Search YouTube · Yorushika",
+    "kind": "external",
+    "href": "https://www.youtube.com/results?search_query=Yorushika",
+    "subject": "yorushika"
+  },
+  {
+    "id": "yorushika-spotify",
+    "label": "Search Spotify · Yorushika",
+    "kind": "external",
+    "href": "https://open.spotify.com/search/Yorushika",
+    "subject": "yorushika"
+  },
+  {
+    "id": "hitorie-youtube",
+    "label": "Search YouTube · Hitorie",
+    "kind": "external",
+    "href": "https://www.youtube.com/results?search_query=Hitorie",
+    "subject": "hitorie"
+  },
+  {
+    "id": "hitorie-spotify",
+    "label": "Search Spotify · Hitorie",
+    "kind": "external",
+    "href": "https://open.spotify.com/search/Hitorie",
+    "subject": "hitorie"
+  },
+  {
+    "id": "kohana-youtube",
+    "label": "Search YouTube · こはならむ",
+    "kind": "external",
+    "href": "https://www.youtube.com/results?search_query=%E3%81%93%E3%81%AF%E3%81%AA%E3%82%89%E3%82%80",
+    "subject": "kohana"
+  },
+  {
+    "id": "kohana-spotify",
+    "label": "Search Spotify · こはならむ",
+    "kind": "external",
+    "href": "https://open.spotify.com/search/%E3%81%93%E3%81%AF%E3%81%AA%E3%82%89%E3%82%80",
+    "subject": "kohana"
+  },
+  {
+    "id": "real-madrid",
+    "label": "Visit Real Madrid",
+    "kind": "external",
+    "href": "https://www.realmadrid.com/en-US",
+    "subject": "football"
+  },
+  {
+    "id": "cr7-history",
+    "label": "Cristiano Ronaldo at Real Madrid",
+    "kind": "external",
+    "href": "https://www.realmadrid.com/en-US/the-club/history/football-legends/cristiano-ronaldo-dos-santos-aveiro",
+    "subject": "football"
+  }
+]

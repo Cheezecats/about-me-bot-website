@@ -4,7 +4,8 @@ import re
 from difflib import get_close_matches
 from dataclasses import dataclass
 
-from backend.generation.intent import QueryIntent, detect_intent, is_additional_detail_request
+from backend.generation.intent import QueryIntent, _attach_contract, detect_intent, is_additional_detail_request
+from backend.generation.evidence import focused_retrieval_query, focused_subjects
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,14 @@ class QueryPlan:
 
 _WHITESPACE = re.compile(r"\s+")
 _TYPO_REPLACEMENTS = {
+    "camra": "camera",
+    "langauge": "language",
+    "langauges": "languages",
+    "langs": "languages",
+    "fave": "favorite",
+    "fav": "favorite",
     "favoriate": "favorite",
+    "favoirate": "favorite",
     "favrite": "favorite",
     "favouite": "favorite",
     "photographt": "photography",
@@ -67,16 +75,28 @@ _DOMAIN_WORDS = (
     "subjects", "ide", "editor", "editors", "vscode", "zed", "workbuddy", "trae",
     "biography", "personality", "contact", "youtube", "github", "bilibili", "videos",
     "graduation", "graduate", "drawing", "published", "publication", "aspirations",
+    "language", "languages", "photographer", "photographers",
 )
-_NEVER_FUZZY_CORRECT = {"james", "what", "does", "do", "like", "likes", "he", "his"}
+_NEVER_FUZZY_CORRECT = {
+    "james", "what", "does", "do", "like", "likes", "he", "his", "brand", "brands",
+    "price", "prices", "latest", "studied", "started", "others", "played", "player",
+    "players", "trained", "grades", "speak", "spoken", "singer", "singers", "series",
+}
 _DOMAIN_WORD_SET = frozenset(_DOMAIN_WORDS)
 
 
 def _clean(text: str) -> str:
+    text = text.replace("’", "'").replace("？", "?").replace("，", ",")
     text = _WHITESPACE.sub(" ", text.strip())
+    text = re.sub(r"^(?:hey|hi|hello|yo)[,!]?\s+(?=\w)", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bwhat'?s\b", "what is", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:spare time|outside (?:of )?(?:class|school))\b", "free time", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:can|could)\s+u\b", "can you", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:coding|code)\s+languages\b", "programming languages", text, flags=re.IGNORECASE)
     for wrong, right in _TYPO_REPLACEMENTS.items():
         text = re.sub(rf"\b{re.escape(wrong)}\b", right, text, flags=re.IGNORECASE)
     text = re.sub(r"\b[A-Za-z][A-Za-z'-]*\b", _correct_domain_typo, text)
+    text = re.sub(r"\b(?:coding|code)\s+languages\b", "programming languages", text, flags=re.IGNORECASE)
     return text.strip(" ,;?")
 
 
@@ -85,7 +105,10 @@ def _correct_domain_typo(match: re.Match[str]) -> str:
     lowered = token.lower()
     if lowered in _DOMAIN_WORD_SET or lowered in _NEVER_FUZZY_CORRECT or len(lowered) < 5:
         return token
-    match_result = get_close_matches(lowered, _DOMAIN_WORDS, n=1, cutoff=0.84)
+    # A shared prefix and a near-exact match avoid changing real modifiers
+    # (for example brand -> band) into a different question.
+    candidates = [word for word in _DOMAIN_WORDS if word[0] == lowered[0]]
+    match_result = get_close_matches(lowered, candidates, n=1, cutoff=0.87)
     if not match_result:
         return token
     corrected = match_result[0]
@@ -96,7 +119,7 @@ def _merge_contract_intent(primary: QueryIntent, raw: QueryIntent) -> QueryInten
     """Keep raw question operators and qualifiers after canonical rewriting."""
 
     return QueryIntent(
-        kind=primary.kind,
+        kind=raw.kind if raw.kind in {"privacy", "unsupported", "ambiguous"} else primary.kind,
         topic=primary.topic,
         entities=tuple(dict.fromkeys((*primary.entities, *raw.entities))),
         followup=primary.followup or raw.followup,
@@ -116,7 +139,7 @@ def _canonical_question(question: str) -> str:
     cleaned = _clean(question)
     lower = cleaned.lower()
 
-    if re.search(r"\b(?:fft\s+guitar\s+tuner|guitar\s+tuner|tune[- ]?app)\b", lower):
+    if re.search(r"\b(?:fft(?:\s+guitar)?\s+tuner|guitar\s+tuner|tune[- ]?app)\b", lower):
         return "How does James's FFT guitar tuner work?"
     if re.search(r"\b(?:who\s+(?:inspired|sparked)|inspiration|inspired).*\bcomputer\s+science\b", lower):
         return "Who inspired James's interest in computer science?"
@@ -384,8 +407,20 @@ def _canonical_question(question: str) -> str:
 
 def build_query_plan(question: str) -> QueryPlan:
     original = question.strip()
-    normalized = _canonical_question(original)
+    cleaned = _clean(original)
+    canonical = _canonical_question(original)
+    # Retrieval may use a broad alias; the answer must still see the requested
+    # relation, quantity, negation, time, or detail. Keep canonical topic chips
+    # for simple questions, but never turn a price/why question into a list.
+    preserve_detail = bool(re.search(
+        r"\b(?:why|how many|how much|how long|when|who went|before|after|not|never|still|stop|stopped|"
+        r"except|other than|excluding|cost|price|settings?|brand|called|named|learn|learned|speak|grades|"
+        r"histology|hallucination|canon|minecraft|piano|python|typescript|solidity|java)\b", cleaned, re.IGNORECASE
+    ))
+    preserve_detail = preserve_detail or bool(focused_subjects(cleaned)) or bool(re.search(r"\b(?:hate|dislike|doesn't|isn't)\b", cleaned, re.IGNORECASE))
+    normalized = cleaned if preserve_detail else canonical
     intent = detect_intent(normalized)
+    intent = _merge_contract_intent(intent, detect_intent(cleaned))
     intent = _merge_contract_intent(intent, detect_intent(original))
 
     # The Apex rank entity is intentionally explicit because "rank" is a
@@ -409,7 +444,16 @@ def build_query_plan(question: str) -> QueryPlan:
             temporal_relation=intent.temporal_relation,
         )
 
-    retrieval_query = normalized
+    # Rebuild the shared contract from the immutable user wording after any
+    # retrieval-only rewrite or legacy intent merge. This prevents canonical
+    # aliases from erasing the requested relationship or object type.
+    # The retrieval rewrite is allowed to broaden vocabulary, but it is not
+    # the semantic source of truth. Interpret the user's cleaned wording so
+    # qualifiers such as “favorite”, “with Python”, or “on the pitch” survive
+    # canonical aliases.
+    intent = _attach_contract(intent, original, interpretation_question=cleaned)
+
+    retrieval_query = canonical if preserve_detail else normalized
     topic_queries = {
         "bio": "James Sui 17 student Shanghai technologist",
         "personality": "personality nice outgoing self learner engineering values",
@@ -471,6 +515,80 @@ def build_query_plan(question: str) -> QueryPlan:
         retrieval_query = "gaming unwind decompress after school friends peers social connection"
     elif "additional_hobbies" in intent.entities:
         retrieval_query = "cosplay 3D printer founding clubs tactile picture books"
+
+    retrieval_query = focused_retrieval_query(intent.entities) or retrieval_query
+
+    # Contract-directed expansions improve recall without changing what the
+    # answer is allowed to claim.
+    if intent.contract is not None:
+        if intent.contract.relation == "playing_position":
+            if "sport_ice_hockey" in intent.entities:
+                retrieval_query = "James plays Ice Hockey started 2015"
+            elif "sport_soccer" in intent.entities:
+                retrieval_query = "Soccer"
+            else:
+                retrieval_query = "Sports positions ice hockey soccer defender forward"
+        elif intent.contract.relation in {"supports", "favorite"} and intent.contract.object_type == "team":
+            retrieval_query = "Favorite football team Real Madrid Cristiano Ronaldo era"
+        elif intent.contract.relation == "visited" and intent.contract.object_type == "place":
+            retrieval_query = "Travel visited Japan Greece Italy Xinjiang United States Russia"
+        elif intent.contract.relation == "favorite" and intent.contract.object_type == "photograph":
+            retrieval_query = "Curated photography picks featured photographs gallery"
+        elif intent.contract.domain == "photography" and intent.contract.relation == "uses" and intent.contract.object_type in {"camera", "lens"}:
+            retrieval_query = "Photography and videography Nikon Z8 DJI Osmo Action NIKKOR lens"
+        elif intent.contract.domain == "photography" and intent.contract.relation == "photographed_in":
+            retrieval_query = "photographed Japan Hokkaido Italy Tuscany Greece Athens"
+        elif intent.contract.domain == "music" and intent.contract.object_type in {"song", "artist", "band"}:
+            retrieval_query = "Favorite music song artist bands DECO*27 Hatsune Miku Yorushika Hitorie"
+        elif intent.contract.domain == "sports" and intent.contract.relation == "playing_position":
+            retrieval_query = "Sports positions ice hockey soccer defender forward"
+        elif intent.contract.domain == "sports" and intent.contract.relation == "started":
+            retrieval_query = "Sports skiing ice hockey tennis floorball soccer started years"
+        elif intent.contract.domain == "sports" and intent.contract.object_type == "team":
+            retrieval_query = "Favorite football team Real Madrid Cristiano Ronaldo era"
+        elif intent.contract.domain == "projects" and intent.contract.relation == "learned_by":
+            retrieval_query = "Self-taught programming Python middle school"
+        elif intent.contract.domain == "projects" and intent.contract.relation == "created" and intent.contract.constraints.get("technology") == "python":
+            retrieval_query = "Projects Skills Python Economics graphing tool hallucination evaluator histology classifier"
+        elif intent.contract.domain == "projects" and intent.contract.object_type == "project" and "fft_tuner" in intent.entities:
+            retrieval_query = "Tune-app FFT Guitar Tuner"
+        elif intent.contract.domain == "writing" and intent.contract.relation == "method":
+            retrieval_query = "Histology classification research paper attention pooling KNN MLP"
+        elif intent.contract.domain == "education" and intent.contract.relation == "studies":
+            retrieval_query = "Education Higher Level subjects Computer Science Mathematics Physics"
+        elif intent.contract.domain == "education" and intent.contract.relation == "favorite":
+            retrieval_query = "Favorite school subject Physics"
+        elif intent.contract.domain == "education" and intent.contract.relation == "reason":
+            retrieval_query = "Physics teacher hands-on activities"
+        elif intent.contract.domain == "travel" and intent.contract.relation == "favorite":
+            retrieval_query = "Favorite place Japan Tokyo"
+        elif intent.contract.domain == "travel" and intent.contract.relation == "visited":
+            retrieval_query = "Travel visited Japan Greece Italy Xinjiang United States Russia"
+        elif intent.contract.domain == "games" and intent.contract.relation == "reason":
+            retrieval_query = "Gaming relaxation unwind friends peers social connection"
+        elif intent.contract.domain == "favorites" and intent.contract.relation == "lists":
+            retrieval_query = "favorite games anime music food season place"
+        elif intent.contract.domain == "favorites" and intent.contract.relation == "favorite" and intent.contract.object_type in {"anime", "movie", "book"}:
+            retrieval_query = {
+                "anime": "Favorite anime Bang Dream Mygo Clannad K-ON",
+                "movie": "Favorite movie Jurassic Park 君の名は",
+                "book": "Favorite book series Percy Jackson Rick Riordan",
+            }[intent.contract.object_type]
+        elif intent.contract.domain == "achievements" and intent.contract.relation in {"lists", "count"}:
+            retrieval_query = "Achievements Awards Physics Bowl Qiu Competition Curieux publication"
+        elif intent.contract.domain == "bio":
+            retrieval_query = "Personal Bio James Sui student Shanghai"
+        elif intent.contract.domain == "contact":
+            retrieval_query = "Contact Links YouTube GitHub website public email"
+        elif intent.contract.domain == "hobbies" and intent.contract.relation == "current_participation":
+            retrieval_query = "Electric guitar still plays started 2025"
+
+    # A focused reviewed entity is a stronger retrieval anchor than a broad
+    # contract expansion. It still cannot authorize an answer outside the
+    # entity's mapped evidence title.
+    focused_query = focused_retrieval_query(intent.entities)
+    if focused_query:
+        retrieval_query = focused_query
 
     rewritten = normalized != original or retrieval_query != normalized
     confidence = 0.96 if rewritten else (0.82 if intent.kind != "unknown" else 0.20)

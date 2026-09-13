@@ -5,7 +5,7 @@ import re
 from backend.generation.intent import detect_intent
 
 _COMPOUND_SPLIT_PATTERN = re.compile(
-    r"\s+(?:and|also|as well as)\s+(?="
+    r"(?:\s+(?:and|also|as well as)\s+|[?;]\s+|\n+)(?="
     r"(?:what|where|who|when|why|how|does|is|are|has|have|did|can|could|which|tell|favorite|favourite|his|her|their|my|your)\b)",
     flags=re.IGNORECASE,
 )
@@ -70,6 +70,8 @@ def merge_compound_results(questions: list[str], results: list[dict]) -> dict:
         status = "answered"
     elif any(status == "unavailable" for status in statuses):
         status = "unavailable"
+    elif all(status == "clarification" for status in statuses):
+        status = "clarification"
     else:
         status = "refused"
 

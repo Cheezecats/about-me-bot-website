@@ -31,13 +31,22 @@ NUMBER_WORDS = {
 
 def numbers_in(text: str) -> set[int]:
     numbers = {int(value) for value in re.findall(r"\b\d+\b", text)}
-    words = re.findall(r"[a-z]+", text.lower())
+    # “One of his interests” is an indefinite expression, not a claimed count.
+    words = re.findall(r"[a-z]+", re.sub(r"\bone of\b", "of", text.lower()))
     numbers.update(NUMBER_WORDS[word] for word in words if word in NUMBER_WORDS)
     return numbers
 
 
 def build_context(chunks: list[dict]) -> str:
     return "\n".join(f"[{index}] {chunk['text']}" for index, chunk in enumerate(chunks, 1))
+
+
+def attribute_profile_quote(answer: str, chunks: list[dict]) -> str:
+    """Attribute a verbatim first-person quote instead of impersonating James."""
+    quote = answer.strip().strip('"“”')
+    if re.match(r"^(?:I\b|My\b)", quote) and any(quote in c.get("text", "") for c in chunks):
+        return f'James says: “{quote}”'
+    return answer
 
 
 def _grounding_terms(text: str) -> set[str]:
@@ -52,6 +61,8 @@ def _grounding_terms(text: str) -> set[str]:
 
 
 def check_grounding(answer: str, context_chunks: list[dict]) -> bool:
+    if not answer.strip() or re.search(r"\bflappy\s*bird\b", answer, re.IGNORECASE):
+        return False
     if answer == config.REFUSAL_MESSAGE:
         return True
     context_text = " ".join(c.get("text", "") for c in context_chunks)
@@ -60,13 +71,58 @@ def check_grounding(answer: str, context_chunks: list[dict]) -> bool:
     answer_words = _grounding_terms(answer)
     context_words = _grounding_terms(context_text)
     if not answer_words:
-        return True
+        return False
     overlap = len(answer_words & context_words)
     # Structured answers are handled separately. For model output, require a
     # meaningful share of its factual vocabulary to come from the retrieved
     # evidence, not merely two generic words.
     minimum_overlap = 1 if any(_NON_LATIN_RUN.fullmatch(term) for term in answer_words) else MIN_GROUNDING_OVERLAP
-    return overlap >= minimum_overlap and overlap / len(answer_words) >= 0.55
+    if overlap < minimum_overlap or overlap / len(answer_words) < 0.55:
+        return False
+    # An accurate first sentence must not hide an unrelated second claim.
+    # Keep decimal points and abbreviations inside sentences intact.
+    for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\u3040-\u9fff])|\n+", answer):
+        terms = _grounding_terms(sentence)
+        if terms and len(terms & context_words) / len(terms) < 0.55:
+            return False
+    return True
+
+
+def check_contract_relevance(answer: str, contract, context_chunks: list[dict]) -> bool:
+    """Require generated text to address the contract, not only cite evidence."""
+
+    if not answer.strip() or answer == config.REFUSAL_MESSAGE:
+        return True
+    relation = getattr(contract, "relation", "unresolved")
+    object_type = getattr(contract, "object_type", "unresolved")
+    lower = answer.lower()
+    context = " ".join(chunk.get("text", "") for chunk in context_chunks).lower()
+    aliases = {
+        "camera": ("camera", "nikon", "dji", "iphone"),
+        "lens": ("lens", "nikkor"),
+        "team": ("real madrid",),
+        "position": ("defender", "forward"),
+        "song": ("君の神様になりたい", "こはならむ"),
+        "artist": ("deco*27", "hatsune miku"),
+        "band": ("yorushika", "hitorie"),
+        "project": ("project", "website", "tuner", "platform", "grapher", "vocabulary", "evaluator", "classifier", "uniswap", "robotics"),
+        "school_subject": ("computer science", "mathematics", "physics"),
+        "place": ("japan", "greece", "italy", "xinjiang", "tuscany", "athens", "hokkaido"),
+        "paper": ("paper", "attention pooling", "knn", "mlp", "method", "architecture"),
+        "method": ("self-taught", "independently", "tutorial", "method", "attention pooling", "architecture"),
+    }
+    required = aliases.get(object_type)
+    if required and not any(term in lower for term in required if term in context or term in {"camera", "lens", "defender", "forward", "project", "paper", "method"}):
+        return False
+    if relation == "supports" and object_type == "team":
+        return "real madrid" in lower
+    if relation == "playing_position" and object_type == "position":
+        return any(term in lower for term in ("defender", "forward"))
+    if relation == "photographed_in" and object_type == "place":
+        return any(term in lower for term in ("japan", "greece", "italy", "xinjiang", "tuscany", "athens", "hokkaido"))
+    if relation == "created" and object_type == "project" and getattr(contract, "constraints", {}).get("technology") == "python":
+        return "python" in lower or any(term in lower for term in aliases["project"] if term in context)
+    return True
 
 
 def build_sources(chunks: list[dict]) -> list[dict]:

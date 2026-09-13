@@ -9,7 +9,7 @@ from backend import config
 from backend.reranker.scoring import rank_scores
 
 
-class RerankerUnavailable(Exception):
+class RerankerUnavailable(RuntimeError):
     pass
 
 

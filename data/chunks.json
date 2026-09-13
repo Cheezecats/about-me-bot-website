@@ -312,18 +312,6 @@
     }
   },
   {
-    "chunk_id": "education_education_000",
-    "text": "## Education James studies the IBDP at YK Pao School, an international high school in Shanghai. He is currently in Grade 11 and takes Higher Level Computer Science, Mathematics AA, and Physics.",
-    "content_hash": "3072cd8f22fe",
-    "metadata": {
-      "source": "extra",
-      "category": "education",
-      "title": "Education",
-      "heading_path": "Education",
-      "section_index": 0
-    }
-  },
-  {
     "chunk_id": "education_boarding_student_006",
     "text": "## Boarding student Lives in dorms at school. Had difficult dorm experiences initially.",
     "content_hash": "47995a903260",
@@ -360,6 +348,18 @@
     }
   },
   {
+    "chunk_id": "education_education_000",
+    "text": "## Education James studies the IBDP at YK Pao School, an international high school in Shanghai. His profile records Grade 11 for the 2025–2026 academic year and Higher Level Computer Science, Mathematics AA, and Physics.",
+    "content_hash": "d3d7b8f96e5b",
+    "metadata": {
+      "source": "extra",
+      "category": "education",
+      "title": "Education",
+      "heading_path": "Education",
+      "section_index": 0
+    }
+  },
+  {
     "chunk_id": "education_expected_graduation_003",
     "text": "## Expected graduation 2027",
     "content_hash": "b65a3d8b4999",
@@ -385,8 +385,8 @@
   },
   {
     "chunk_id": "education_grade_level_004",
-    "text": "## Grade level Currently in Grade 11 (as of 2025-2026 academic year).",
-    "content_hash": "50589247cb88",
+    "text": "## Grade level Grade 11, recorded for the 2025–2026 academic year.",
+    "content_hash": "60ccad6a3be7",
     "metadata": {
       "source": "extra",
       "category": "education",
@@ -585,6 +585,18 @@
       "title": "Favorite food",
       "heading_path": "Favorite food",
       "section_index": 3
+    }
+  },
+  {
+    "chunk_id": "favorites_favorite_football_team_012",
+    "text": "## Favorite football team James’s favorite football team is Real Madrid, especially the Cristiano Ronaldo era. Provenance: James supplied this preference in the JamChat navigation planning conversation and explicitly approved adding it to his public profile on 12 September 2026.",
+    "content_hash": "51891e99d3a0",
+    "metadata": {
+      "source": "extra",
+      "category": "favorites",
+      "title": "Favorite football team",
+      "heading_path": "Favorite football team",
+      "section_index": 12
     }
   },
   {
@@ -1404,6 +1416,18 @@
     }
   },
   {
+    "chunk_id": "photo_photography_001_24276149cee5",
+    "text": "Photography by James: Switzerland, Mount Rigi — the Swiss Alps unfolding beneath a wide winter sky.",
+    "content_hash": "24276149cee5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 1
+    }
+  },
+  {
     "chunk_id": "photo_photography_002",
     "text": "Photography by James: Greece, Athens — view of the National Observatory of Athens nestled among lush greenery under a soft, fading twilight sky.",
     "content_hash": "38d36387f889",
@@ -1428,6 +1452,18 @@
     }
   },
   {
+    "chunk_id": "photo_photography_003_6dc543deb8e5",
+    "text": "Photography by James: Japan, Tokyo — Tokyo Tower held at a distance, suspended above the city.",
+    "content_hash": "6dc543deb8e5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 3
+    }
+  },
+  {
     "chunk_id": "photo_photography_004",
     "text": "Photography by James: Japan, Hokkaido — a solitary evergreen, lit from below against the snow.",
     "content_hash": "929bc7130ca0",
@@ -1437,6 +1473,186 @@
       "title": "Photography",
       "heading_path": "Photography",
       "section_index": 4
+    }
+  },
+  {
+    "chunk_id": "photo_photography_006",
+    "text": "Photography by James: A ship crossing a quiet harbor.",
+    "content_hash": "23316c1720d6",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 6
+    }
+  },
+  {
+    "chunk_id": "photo_photography_007",
+    "text": "Photography by James: Hakuba — snow-covered mountains under a clear winter sky.",
+    "content_hash": "42ede60befc5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 7
+    }
+  },
+  {
+    "chunk_id": "photo_photography_008",
+    "text": "Photography by James: Stars above a winter tree line.",
+    "content_hash": "b8063c65500b",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 8
+    }
+  },
+  {
+    "chunk_id": "photo_photography_009",
+    "text": "Photography by James: Tokyo Tower at night.",
+    "content_hash": "6335241ad493",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 9
+    }
+  },
+  {
+    "chunk_id": "photo_photography_010",
+    "text": "Photography by James: Hakuba — a snowy railway leading toward the mountains.",
+    "content_hash": "5120bd639e60",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 10
+    }
+  },
+  {
+    "chunk_id": "photo_photography_011",
+    "text": "Photography by James: Hakuba — snow-covered ski slopes and ridgelines.",
+    "content_hash": "a4efd367722c",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 11
+    }
+  },
+  {
+    "chunk_id": "photo_photography_012",
+    "text": "Photography by James: Ueno — a rainy city scene framed by railway infrastructure.",
+    "content_hash": "329dce3169d5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 12
+    }
+  },
+  {
+    "chunk_id": "photo_photography_013",
+    "text": "Photography by James: Xinjiang — an abstract landscape of dunes, fractured by sky and shadow.",
+    "content_hash": "0a0f083836c5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 13
+    }
+  },
+  {
+    "chunk_id": "photo_photography_014",
+    "text": "Photography by James: Hakuba — railway tracks descending through the snow.",
+    "content_hash": "74212fe409a5",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 14
+    }
+  },
+  {
+    "chunk_id": "photo_photography_015",
+    "text": "Photography by James: Ueno — a rainy urban street.",
+    "content_hash": "ad5ba0bcf0da",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 15
+    }
+  },
+  {
+    "chunk_id": "photo_photography_016",
+    "text": "Photography by James: Xinjiang — wind-drawn dunes folding into one another, a quiet study of sand and light.",
+    "content_hash": "75b09f71ae87",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 16
+    }
+  },
+  {
+    "chunk_id": "photo_photography_017",
+    "text": "Photography by James: Shiga — a snowy forest illuminated at night.",
+    "content_hash": "1bc7c4e0bf22",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 17
+    }
+  },
+  {
+    "chunk_id": "photo_photography_018",
+    "text": "Photography by James: Karuizawa — a quiet forest road.",
+    "content_hash": "c29f0d949643",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 18
+    }
+  },
+  {
+    "chunk_id": "photo_photography_019",
+    "text": "Photography by James: Xinjiang — eroded earth and shadow tracing a quiet desert canyon.",
+    "content_hash": "dc9897f554b0",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 19
+    }
+  },
+  {
+    "chunk_id": "photo_photography_020",
+    "text": "Photography by James: Karuizawa — a frozen stream through the forest.",
+    "content_hash": "4bb370decb78",
+    "metadata": {
+      "source": "site",
+      "category": "photo",
+      "title": "Photography",
+      "heading_path": "Photography",
+      "section_index": 20
     }
   },
   {
@@ -1608,18 +1824,6 @@
     }
   },
   {
-    "chunk_id": "projects_skills_projects_skills_000",
-    "text": "## Projects & Skills James's projects include a React/TypeScript personal website, an FFT guitar tuner, a Flutter medical recovery platform, an economics graphing tool, a SAT vocabulary app, an LLM hallucination evaluator, a histology classifier benchmark, a Uniswap V3 research experiment, an FTC robotics project, and a Flappy Bird game.",
-    "content_hash": "18ae630f181f",
-    "metadata": {
-      "source": "extra",
-      "category": "projects_skills",
-      "title": "Projects & Skills",
-      "heading_path": "Projects & Skills",
-      "section_index": 0
-    }
-  },
-  {
     "chunk_id": "projects_skills_programming_languages_000",
     "text": "## Programming languages Python, C, C++, TypeScript, Dart (Flutter), Solidity. Self-taught Python during middle school.",
     "content_hash": "34c11ecd0f61",
@@ -1628,6 +1832,18 @@
       "category": "projects_skills",
       "title": "Programming languages",
       "heading_path": "Programming languages",
+      "section_index": 0
+    }
+  },
+  {
+    "chunk_id": "projects_skills_projects_skills_000",
+    "text": "## Projects & Skills James's projects include a React/TypeScript personal website, an FFT guitar tuner, a Flutter medical recovery platform, an economics graphing tool, a SAT vocabulary app, an LLM hallucination evaluator, a histology classifier benchmark, a Uniswap V3 research experiment, and an FTC robotics project.",
+    "content_hash": "9ca430783d61",
+    "metadata": {
+      "source": "extra",
+      "category": "projects_skills",
+      "title": "Projects & Skills",
+      "heading_path": "Projects & Skills",
       "section_index": 0
     }
   },
@@ -1776,18 +1992,6 @@
     }
   },
   {
-    "chunk_id": "sports_sports_000",
-    "text": "## Sports James plays skiing, ice hockey, tennis, floorball, and soccer. He started skiing in 2013, ice hockey in 2015, tennis in 2018, and floorball in 2023; he plays soccer as a forward.",
-    "content_hash": "9b8be743f899",
-    "metadata": {
-      "source": "extra",
-      "category": "sports",
-      "title": "Sports",
-      "heading_path": "Sports",
-      "section_index": 0
-    }
-  },
-  {
     "chunk_id": "sports_floorball_006",
     "text": "## Floorball Started floorball in 2023. Joined school's varsity team. \"I originally saw it as a way to keep my hockey skills sharp during boarding, but I soon found myself captivated by the game's distinct flow. Transitioning from the ice to the court required a quick study of new mechanics, and I've loved every bit of the learning curve.\"",
     "content_hash": "05eb8fd7147e",
@@ -1869,6 +2073,18 @@
       "title": "Soccer",
       "heading_path": "Soccer",
       "section_index": 7
+    }
+  },
+  {
+    "chunk_id": "sports_sports_000",
+    "text": "## Sports James plays skiing, ice hockey, tennis, floorball, and soccer. He started skiing in 2013, ice hockey in 2015, tennis in 2018, and floorball in 2023; he plays soccer as a forward.",
+    "content_hash": "9b8be743f899",
+    "metadata": {
+      "source": "extra",
+      "category": "sports",
+      "title": "Sports",
+      "heading_path": "Sports",
+      "section_index": 0
     }
   },
   {
@@ -2028,18 +2244,6 @@
     }
   },
   {
-    "chunk_id": "writing_writing_essays_000",
-    "text": "## Writing & Essays James has written essays and research papers about LLM hallucinations, medical imaging and histology classifiers, Uniswap V3, and an IB Physics guitar tuner project.",
-    "content_hash": "be19827f9198",
-    "metadata": {
-      "source": "extra",
-      "category": "writing",
-      "title": "Writing & Essays",
-      "heading_path": "Writing & Essays",
-      "section_index": 0
-    }
-  },
-  {
     "chunk_id": "writing_combined_research_paper_002",
     "text": "## Combined research paper (丘竞赛) \"How Changing Neural Network Architectures Improves Performance: Insights from LLM Hallucination, Simple Classification, and Vision Tasks\" - a combined paper addressing three research questions: (1) How architecture changes affect LLM hallucination vs parameter scaling, (2) Performance gains in classification tasks, (3) CNNs vs ViTs in visual inspection.",
     "content_hash": "bf24e7f75324",
@@ -2145,6 +2349,18 @@
       "title": "TOK Exhibition",
       "heading_path": "TOK Exhibition",
       "section_index": 4
+    }
+  },
+  {
+    "chunk_id": "writing_writing_essays_000",
+    "text": "## Writing & Essays James has written essays and research papers about LLM hallucinations, medical imaging and histology classifiers, Uniswap V3, and an IB Physics guitar tuner project.",
+    "content_hash": "be19827f9198",
+    "metadata": {
+      "source": "extra",
+      "category": "writing",
+      "title": "Writing & Essays",
+      "heading_path": "Writing & Essays",
+      "section_index": 0
     }
   }
 ]

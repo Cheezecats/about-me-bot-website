@@ -35,3 +35,7 @@ Uses multiple: Claude, Codex, TRAE, WorkBuddy, VS Code, Zed.
 
 ## Expected graduation
 2027.
+## Favorite football team
+James’s favorite football team is Real Madrid, especially the Cristiano Ronaldo era.
+
+Provenance: James supplied this preference in the JamChat navigation planning conversation and explicitly approved adding it to his public profile on 12 September 2026.

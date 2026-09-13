@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,6 +29,12 @@ REQUIRED_SECTIONS = {
     "writing_details",
     "achievements",
     "apex_rank",
+    "public_profile",
+    "personality_summary",
+    "dislikes",
+    "photographed_locations",
+    "coding_learning",
+    "gaming_reasons",
 }
 
 
@@ -42,9 +47,16 @@ def validate_facts(facts: dict) -> list[str]:
     missing = REQUIRED_SECTIONS - facts.keys()
     errors.extend(f"missing section: {section}" for section in sorted(missing))
     sources = facts.get("_sources", {})
-    for section in REQUIRED_SECTIONS:
-        for source in sources.get(section, []):
-            if not (ROOT / source).is_file():
+    if not isinstance(sources, dict):
+        errors.append("_sources must map sections to evidence files")
+        sources = {}
+    for section in facts.keys() - {"_sources"}:
+        evidence = sources.get(section)
+        if not isinstance(evidence, list) or not evidence:
+            errors.append(f"{section}: missing evidence mapping")
+            continue
+        for source in evidence:
+            if not isinstance(source, str) or not (ROOT / source).is_file():
                 errors.append(f"{section}: missing evidence source {source}")
 
     serialized = json.dumps(facts, ensure_ascii=False).lower()

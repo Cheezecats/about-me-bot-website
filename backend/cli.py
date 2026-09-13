@@ -4,14 +4,12 @@ import argparse
 
 from backend import config
 from backend.generation.answer import answer_or_refuse
-from backend.reranker.inference import Reranker, RerankerUnavailable
-from backend.retrieval.bm25 import BM25Index, build_and_save, load_chunks, retrieve
+from backend.generation.query_plan import build_query_plan
+from backend.retrieval.bm25 import BM25Index, load_or_build, load_chunks, retrieve
 
 
 def _load_index() -> BM25Index:
-    if config.BM25_INDEX_PATH.exists():
-        return BM25Index.load(config.BM25_INDEX_PATH)
-    return build_and_save()
+    return load_or_build()
 
 
 def main() -> None:
@@ -28,17 +26,22 @@ def main() -> None:
 
     index = _load_index()
     chunks = load_chunks()
-    candidates = retrieve(question, index, chunks, k=config.TOP_K)
-
-    try:
-        reranker = Reranker()
-    except (SystemExit, RerankerUnavailable) as e:
-        raise SystemExit(
-            f"{e} Train it first with `python -m backend.training.train_reranker`."
-        )
-
-    reranked = reranker.rerank(question, candidates)
-    result = answer_or_refuse(question, reranked)
+    plan = build_query_plan(question)
+    query = plan.retrieval_query if config.QUERY_PLANNER_ENABLED else question
+    candidates = retrieve(query, index, chunks, k=config.TOP_K)
+    reranker = None
+    if config.RERANKER_ENABLED:
+        try:
+            from backend.reranker.inference import Reranker
+            reranker = Reranker()
+        except (ImportError, RuntimeError, OSError):
+            print("Optional reranker unavailable; using BM25.")
+    reranked = reranker.rerank(query, candidates) if reranker else candidates
+    result = answer_or_refuse(
+        question, reranked, enforce_confidence_threshold=reranker is not None,
+        intent_question=plan.normalized_question, intent_override=plan.intent,
+        generation_timeout=config.CHAT_TIMEOUT_SECONDS,
+    )
 
     print(f"Status:     {result['status']}")
     print(f"Answer:     {result['answer']}")

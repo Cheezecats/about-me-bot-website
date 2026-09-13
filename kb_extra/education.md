@@ -1,6 +1,6 @@
 # Education
 
-James studies the IBDP at YK Pao School, an international high school in Shanghai. He is currently in Grade 11 and takes Higher Level Computer Science, Mathematics AA, and Physics.
+James studies the IBDP at YK Pao School, an international high school in Shanghai. His profile records Grade 11 for the 2025–2026 academic year and Higher Level Computer Science, Mathematics AA, and Physics.
 
 ## Current curriculum
 Studies the IBDP (International Baccalaureate Diploma Programme) at YK Pao School, an international high school in Shanghai.
@@ -15,7 +15,7 @@ Completed the IGCSE curriculum prior to IBDP.
 2027
 
 ## Grade level
-Currently in Grade 11 (as of 2025-2026 academic year).
+Grade 11, recorded for the 2025–2026 academic year.
 
 ## Transfer experience
 Transferred from an English-main environment into a Chinese-main environment between 8th and 9th grade. Describes himself as "a non-domestic transfer student in a bilingual school."
