@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import re
 import time
+import asyncio
 
 from backend import config
+from backend.generation.contracts import SemanticContract
+from backend.generation.evidence import subject_name, focused_subjects
 
 _FOLLOWUP_TOKENS = frozenset(
     {
@@ -23,14 +26,26 @@ _EXPLICIT_TOPIC_TOKENS = frozenset(
         "graduate", "graduation", "subjects", "aspirations", "research", "essay", "essays", "ia", "hl", "believe", "values",
     }
 )
-_STOPWORDS = frozenset(
-    "the a an and or but is are was were be been being to of in on at for with about "
-    "this that it he his him she her they them what when where why how james".split()
-)
 _VAGUE_FOLLOWUP_PATTERN = re.compile(
     r"^(?:what about|tell me more|anything else|what else|anything more|something else|anything to add|go on|continue|keep going|is that all|and|what about it|what about that|what about this)[!.?,\s]*$",
     re.IGNORECASE,
 )
+
+
+def requests_shorter_answer(question: str) -> bool:
+    return bool(re.fullmatch(
+        r"(?:can you |could you |please )?(?:make (?:that|it) shorter|shorter(?: please)?|tl;?dr|summari[sz]e (?:that|it))[.!?\s]*",
+        question.strip(), re.IGNORECASE,
+    ))
+
+
+def shorten_list_answer(answer: str) -> str:
+    """Condense long lists without rewriting facts or dropping surrounding caveats."""
+    pattern = r"(?m)^(?:(?:\d+[.)]|[-*•])\s+[^\n]+\n?){4,}"
+    def shorten(match: re.Match) -> str:
+        items = match.group(0).strip().splitlines()
+        return "\n".join(items[:3]) + f"\n\nShowing 3 of {len(items)} listed items.\n"
+    return re.sub(pattern, shorten, answer).strip()
 
 _TOPIC_CONTEXT_TERMS = {
     "photography": ("photography", "camera", "lens"),
@@ -63,10 +78,25 @@ _ENTITY_CONTEXT_TERMS = {
     "movie": ("favorite movie",),
     "book": ("favorite book series",),
     "instrument": ("electric guitar", "instrument"),
+    "sport_skiing": ("skiing",),
+    "sport_ice_hockey": ("ice hockey",),
+    "sport_tennis": ("tennis",),
+    "sport_floorball": ("floorball",),
+    "sport_soccer": ("soccer",),
+    "fft_tuner": ("FFT guitar tuner",),
+    "medical_platform": ("Flutter medical recovery platform",),
+    "travel_italy": ("Italy",),
+    "travel_greece": ("Greece",),
+    "travel_japan": ("Japan",),
+    "travel_xinjiang": ("Xinjiang",),
+    "travel_russia": ("Russia",),
+    "travel_united_states": ("United States",),
 }
 
 
 def _is_followup(question: str) -> bool:
+    if re.match(r"^(?:why|when|where|how|which one)\b", question.strip(), re.IGNORECASE):
+        return True
     tokens = set(re.findall(r"[a-z]+", question.lower()))
     if bool(tokens & _FOLLOWUP_TOKENS) or bool(_VAGUE_FOLLOWUP_PATTERN.fullmatch(question.strip())):
         return True
@@ -77,33 +107,16 @@ def _is_followup(question: str) -> bool:
     ))
 
 
-def _keywords(text: str, limit: int = 3) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    caps = re.findall(r"\b([A-Z][a-zA-Z]{2,})\b", text)
-    for w in caps:
-        lw = w.lower()
-        if lw in _STOPWORDS or lw in seen:
-            continue
-        seen.add(lw)
-        out.append(lw)
-        if len(out) >= limit:
-            return out
-    words = re.findall(r"[A-Za-z]{4,}", text)
-    for w in words:
-        lw = w.lower()
-        if lw in _STOPWORDS or lw in seen:
-            continue
-        seen.add(lw)
-        out.append(lw)
-        if len(out) >= limit:
-            break
-    return out
-
-
 class ConversationState:
     def __init__(self, max_turns: int = config.MAX_HISTORY_TURNS) -> None:
         self.max_turns = max_turns
+        self.clear_profile_context()
+        self.navigation_subjects: tuple[str, ...] = ()
+        # Serialize requests within a session, allowing independent visitors.
+        self.lock = asyncio.Lock()
+
+    def clear_profile_context(self) -> None:
+        """A new navigation subject must not inherit an unrelated fact answer."""
         self.history: list[tuple[str, str, str]] = []
         self.last_topic: str | None = None
         self.last_entities: tuple[str, ...] = ()
@@ -111,6 +124,12 @@ class ConversationState:
         self.last_requested_detail: str | None = None
         self.last_question: str = ""
         self.last_answer: str = ""
+        self.last_contract: SemanticContract | None = None
+        self.last_relation: str | None = None
+        self.last_object_type: str | None = None
+        self.last_evidence_ids: tuple[str, ...] = ()
+        self.last_displayed_items: tuple[str, ...] = ()
+        self.last_destination_ids: tuple[str, ...] = ()
 
     def record(
         self,
@@ -120,20 +139,66 @@ class ConversationState:
         entities: tuple[str, ...] = (),
         *,
         normalized_question: str | None = None,
+        contract: SemanticContract | None = None,
+        evidence_ids: tuple[str, ...] = (),
+        destination_ids: tuple[str, ...] = (),
     ) -> None:
         self.history.append((question, answer, topic))
         if len(self.history) > self.max_turns:
             self.history = self.history[-self.max_turns :]
         self.last_topic = topic
         self.last_entities = tuple(entities)
-        self.last_subject = self._subject_for(topic, entities)
+        if topic == "sports" and not any(entity.startswith("sport_") for entity in entities):
+            mentioned = tuple(entity for entity, terms in _ENTITY_CONTEXT_TERMS.items()
+                              if entity.startswith("sport_") and re.search(rf"\b{re.escape(terms[0])}\b", answer, re.IGNORECASE))
+            if len(mentioned) == 1:
+                self.last_entities = mentioned
+        self.last_subject = self._subject_for(topic, self.last_entities)
         self.last_requested_detail = self._detail_for(normalized_question or question, topic, entities)
         self.last_question = normalized_question or question
         self.last_answer = answer
+        self.last_contract = contract
+        self.last_relation = contract.relation if contract else self._detail_for(self.last_question, topic, entities)
+        self.last_object_type = contract.object_type if contract else self.last_subject
+        self.last_evidence_ids = tuple(evidence_ids)
+        self.last_displayed_items = self._displayed_items(answer)
+        self.last_destination_ids = tuple(destination_ids)
+
+    @staticmethod
+    def _displayed_items(answer: str) -> tuple[str, ...]:
+        items: list[str] = []
+        for line in answer.splitlines():
+            match = re.match(r"^\s*(?:\d+[.)]|[-*•])\s+(.+?)\s*$", line)
+            if match and not match.group(1).lower().startswith("showing "):
+                items.append(match.group(1))
+        return tuple(items)
+
+    def record_navigation(
+        self,
+        answer: str,
+        contract: SemanticContract | None,
+        destination_ids: tuple[str, ...],
+    ) -> None:
+        """Record navigation in the same bounded semantic context as facts."""
+
+        self.last_contract = contract
+        self.last_topic = contract.domain if contract else None
+        self.last_entities = ()
+        self.last_subject = contract.subject if contract else None
+        self.last_requested_detail = contract.relation if contract else "navigation"
+        self.last_relation = contract.relation if contract else "navigation"
+        self.last_object_type = contract.object_type if contract else None
+        self.last_question = contract.original_text if contract else self.last_question
+        self.last_answer = answer
+        self.last_evidence_ids = ()
+        self.last_displayed_items = self._displayed_items(answer)
+        self.last_destination_ids = tuple(destination_ids)
 
     @staticmethod
     def _subject_for(topic: str, entities: tuple[str, ...]) -> str | None:
         for entity in entities:
+            if subject_name(entity) or entity.startswith("sport_") or entity in {"fft_tuner", "medical_platform"}:
+                return entity
             if entity in {
                 "camera", "lens", "song", "band", "artist", "anime", "movie", "book",
                 "instrument", "apex_rank", "travel_italy", "travel_greece", "travel_japan",
@@ -155,17 +220,15 @@ class ConversationState:
             return "method"
         return topic if topic else (entities[0] if entities else None)
 
-    def _context_prefix(self, *, include_answer_keywords: bool = False) -> str:
+    def _context_prefix(self) -> str:
         terms: list[str] = []
         for entity in self.last_entities:
             terms.extend(_ENTITY_CONTEXT_TERMS.get(entity, ()))
+            if name := subject_name(entity):
+                terms.append(name)
         if self.last_topic:
             terms.extend(_TOPIC_CONTEXT_TERMS.get(self.last_topic, ()))
-        # A second-hop “which one?” needs the concrete item from the previous
-        # answer, not merely the broad topic. This is deliberately limited to
-        # list-like topics so it cannot leak arbitrary answer text into search.
-        if include_answer_keywords and self.last_topic in {"sports", "games", "projects", "videos", "favorites"}:
-            terms.extend(_keywords(self.last_answer, limit=3))
+        # Use recorded subjects instead of arbitrary words from generated answers.
 
         deduplicated: list[str] = []
         seen: set[str] = set()
@@ -177,9 +240,37 @@ class ConversationState:
         return " ".join(deduplicated)
 
     def augment_query(self, question: str) -> str:
+        if self.history and requests_shorter_answer(question):
+            return self.last_question
         if not self.history or not _is_followup(question):
             return question
         lower = question.lower()
+        ordinal = re.search(r"\b(?:the\s+)?(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|last)\s+(?:one|item|project|essay)\b", lower)
+        if ordinal:
+            items = re.findall(r"^(?:\d+[.)]|[-*•])\s+(.+)$", self.last_answer, re.MULTILINE)
+            position = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3, "fifth": 4, "5th": 4, "last": -1}[ordinal.group(1)]
+            if items and -len(items) <= position < len(items):
+                item = items[position]
+                return re.sub(re.escape(ordinal.group(0)), item, question, flags=re.IGNORECASE)
+            return question
+
+        # A newly named topic takes precedence over an instrument's implicit
+        # learning/start-date context. Keep music/genre bridges conversational.
+        if self.last_subject == "instrument":
+            tokens = set(re.findall(r"[a-z]+", lower))
+            foreign_topics = _EXPLICIT_TOPIC_TOKENS - {"music", "song", "guitar", "instrument"}
+            if tokens & (foreign_topics | {"python", "java", "javascript", "typescript", "piano", "drums"}) or focused_subjects(question):
+                return question
+
+        # A list of sports is not a single antecedent for a start-date question.
+        if self.last_topic == "sports" and not any(entity.startswith("sport_") for entity in self.last_entities):
+            if re.search(r"\b(?:when|what year)\b.*\b(?:start|begin)", lower) and not re.search(r"\b(?:skiing|hockey|tennis|floorball|soccer)\b", lower):
+                return question
+
+        if self.last_subject and self.last_subject.startswith("sport_") and re.search(
+            r"\b(?:when|what year)\b.*\b(?:start|begin)", lower
+        ) and not re.search(r"\b(?:skiing|hockey|tennis|floorball|soccer)\b", lower):
+            return f"When did James start {_ENTITY_CONTEXT_TERMS[self.last_subject][0]}?"
         # “Season” is ambiguous in this profile: it can mean James's favorite
         # season or the Apex Legends season attached to his rank. Preserve the
         # previous Apex entity when the follow-up uses a pronoun.
@@ -205,6 +296,8 @@ class ConversationState:
             return "What genres does James play on electric guitar?"
 
         if self.last_subject == "instrument" and re.search(r"\b(?:learn|learned|learning|method|how)\b", lower):
+            if re.search(r"\b(?:cost|price|long|much|often|piano|drums)\b", lower):
+                return "electric guitar " + question
             return "How did James learn to play electric guitar?"
 
         if self.last_topic == "travel" and re.search(r"\bthere\b", lower) and re.search(
@@ -232,10 +325,9 @@ class ConversationState:
         # An explicit topic is more reliable than keywords extracted from the
         # previous answer. This prevents a follow-up about lenses from being
         # contaminated by an earlier answer about food or seasons.
-        if question_tokens & _EXPLICIT_TOPIC_TOKENS:
+        if question_tokens & _EXPLICIT_TOPIC_TOKENS or focused_subjects(question):
             return question
-        include_answer_keywords = bool(re.search(r"\b(?:which\s+one|first|second|third)\b", lower))
-        prefix = self._context_prefix(include_answer_keywords=include_answer_keywords)
+        prefix = self._context_prefix()
         if not prefix:
             return question
         return prefix + " " + question
@@ -282,6 +374,7 @@ class ConversationStore:
         else:
             state = item[1]
         self._items[session_id] = (now, state)
+        self._evict(now)
         return state
 
     def touch(self, session_id: str) -> None:

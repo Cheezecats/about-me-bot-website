@@ -51,3 +51,17 @@ def test_profile_facts_do_not_contain_private_field_names_or_pii():
 
 def test_profile_facts_validation_pipeline_passes():
     assert validate_facts(_facts()) == []
+
+
+def test_every_fact_section_needs_traceable_evidence():
+    facts = _facts()
+    del facts["_sources"]["public_profile"]
+    assert "public_profile: missing evidence mapping" in validate_facts(facts)
+    facts["new_fact"] = "An unsupported claim"
+    assert "new_fact: missing evidence mapping" in validate_facts(facts)
+
+
+def test_evidence_mapping_must_point_to_existing_files():
+    facts = _facts()
+    facts["_sources"]["public_profile"] = ["kb_extra/missing-profile.md"]
+    assert any("missing evidence source" in error for error in validate_facts(facts))

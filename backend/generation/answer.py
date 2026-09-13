@@ -2,20 +2,26 @@ from __future__ import annotations
 
 import re
 import time
+import threading
+import logging
+from dataclasses import dataclass, replace
 
 import httpx
 
 from backend import config
 from backend.generation.compound import merge_compound_results, split_compound_question
+from backend.generation.contracts import SemanticContract, unavailable_profile_detail
+from backend.generation.evidence import capability_for, eligible_evidence, focused_chunks
 from backend.generation.formatting import (
     build_context,
     build_sources,
     check_grounding,
+    check_contract_relevance,
     numbers_in,
+    attribute_profile_quote,
 )
-from backend.generation.intent import QueryIntent, detect_intent
+from backend.generation.intent import QueryIntent
 from backend.generation.policies import (
-    SMALL_TALK_RESPONSE,
     apply_pii_filter,
     is_ambiguous_request,
     is_non_profile_request,
@@ -27,7 +33,6 @@ from backend.generation.policies import (
 )
 from backend.generation.query_plan import _merge_contract_intent, build_query_plan
 from backend.generation.structured_answers import (
-    STRUCTURED_SUMMARY_TITLES,
     extractive_answer,
     format_structured_answer,
     is_structured_summary,
@@ -44,6 +49,32 @@ _is_structured_summary = is_structured_summary
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 CONTEXT_TOP_N = 3
 OLLAMA_TIMEOUT = 30.0
+_generation_slots = threading.BoundedSemaphore(config.MAX_LLM_CONCURRENCY)
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class GeneratedDraft:
+    """Internal model-output envelope checked before a public answer is returned."""
+
+    answer: str
+    answered_relation: str
+    evidence_ids: tuple[str, ...]
+
+    def validate(self, contract: SemanticContract | None, context_chunks: list[dict]) -> bool:
+        if contract is None or not self.answer.strip():
+            return False
+        available_ids = {str(chunk.get("chunk_id", "")) for chunk in context_chunks}
+        if not set(self.evidence_ids).issubset(available_ids):
+            return False
+        # The declared relation is metadata for diagnostics, never proof of
+        # correctness. Content-level grounding and contract relevance below
+        # remain mandatory.
+        if self.answered_relation != contract.relation:
+            return False
+        return check_grounding(self.answer, context_chunks) and check_contract_relevance(
+            self.answer, contract, context_chunks
+        )
 
 
 def _result(
@@ -74,24 +105,45 @@ def _result(
 
 
 def _build_messages(
-    question: str, context_chunks: list[dict], history: list[dict] | None = None
+    question: str,
+    context_chunks: list[dict],
+    history: list[dict] | None = None,
+    contract: SemanticContract | None = None,
 ) -> list[dict]:
     context = build_context(context_chunks)
+    contract_text = ""
+    if contract is not None:
+        relation_guidance = {
+            "reason": "explain the documented reason or purpose, not merely a related example",
+            "result": "state the documented result or outcome directly",
+            "likes": "answer the preference or comparison and preserve the evidence's stated criterion",
+            "uses": "state what James uses it for",
+            "method": "state the documented method or approach",
+        }.get(contract.relation, "answer the requested relationship directly")
+        contract_text = (
+            "\n\nResolved contract (follow this request; do not broaden it): "
+            f"subject={contract.subject}; domain={contract.domain}; relation={contract.relation}; "
+            f"object_type={contract.object_type}; constraints={contract.constraints}; "
+            f"response_mode={contract.response_mode}. Answer focus: {relation_guidance}."
+        )
     user = (
         f"Context:\n{context}\n\n"
-        f"Question: {question}\n\n"
+        f"Question: {question}{contract_text}\n\n"
         "Answer the question using only the context above. "
-        "Use one to three concise sentences, or a short bullet list when the question asks for multiple items. "
-        "Answer only the topic asked about; ignore unrelated context. "
+        "Prefer one concise sentence, or a short bullet list when the question asks for multiple items. "
+        "Do not add a concluding sentence that repeats the question or the answer. "
+        "Answer only the topic asked about; include the relevant specifics and ignore unrelated context. "
+        "Speak about James in the third person, including when the evidence quotes him saying I or my. "
         "Use normal spelling even if the user made a typo. "
         "Never mention the context or say 'the provided context'. "
         "Do not infer ages from years, favorites from general usage, or relationships between separate facts. "
-        "If the context does not directly answer the question, respond exactly: "
+        "Choose one: give a supported answer, OR, if the context does not directly answer the question, respond exactly: "
         f"\"{config.REFUSAL_MESSAGE}\""
+        " Never append that refusal to an answer supported by the context."
     )
     messages = [{"role": "system", "content": config.GROUNDING_SYSTEM_PROMPT}]
-    if history:
-        messages.extend(history)
+    # The current question has already been resolved against session memory.
+    # Prior user statements and assistant answers are not new evidence.
     messages.append({"role": "user", "content": user})
     return messages
 
@@ -114,15 +166,19 @@ def _call_ollama(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
             "model": config.LLM_MODEL,
             "messages": messages,
             "stream": False,
-            "options": {"temperature": 0.0, "top_p": 0.9},
+            "options": {"temperature": 0.0, "top_p": 0.9, "num_predict": config.LLM_MAX_OUTPUT_TOKENS, "num_ctx": 4096},
         },
         timeout=timeout,
     )
     response.raise_for_status()
-    return response.json()["message"]["content"].strip()
+    data = response.json()
+    content = data["message"]["content"]
+    if not isinstance(content, str) or not content.strip() or data.get("done_reason") == "length":
+        raise ValueError("Ollama returned an empty or truncated answer")
+    return content.strip()
 
 
-def _call_groq(messages: list[dict]) -> str:
+def _call_groq(messages: list[dict], timeout: float = OLLAMA_TIMEOUT) -> str:
     response = httpx.post(
         GROQ_URL,
         headers={
@@ -133,33 +189,42 @@ def _call_groq(messages: list[dict]) -> str:
             "model": config.GROQ_MODEL,
             "messages": messages,
             "temperature": 0.2,
+            "max_tokens": config.LLM_MAX_OUTPUT_TOKENS,
         },
-        timeout=60.0,
+        timeout=timeout,
     )
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def generate_answer(
-    question: str, context_chunks: list[dict], history: list[dict] | None = None
+    question: str, context_chunks: list[dict], history: list[dict] | None = None,
+    *, timeout: float = OLLAMA_TIMEOUT,
 ) -> tuple[str, bool]:
     if not context_chunks:
         return config.REFUSAL_MESSAGE, False
-    fallback_text = context_chunks[0].get("text", config.REFUSAL_MESSAGE)
+    if timeout <= 0 or not _generation_slots.acquire(blocking=False):
+        return config.UNAVAILABLE_MESSAGE, True
     try:
-        messages = _build_messages(question, context_chunks, history)
+        # Derive the same deterministic contract used by the public request
+        # path. This preserves the stable three-argument call surface used by
+        # integrations while ensuring model prompts cannot silently discard
+        # the requested relation or object type.
+        contract = build_query_plan(question).intent.contract if config.SEMANTIC_CONTRACT_ENABLED else None
+        messages = _build_messages(question, context_chunks, history, contract)
         if config.LLM_BACKEND == "ollama":
-            return _call_ollama(messages), False
+            return _call_ollama(messages, timeout=timeout), False
         if config.LLM_BACKEND == "groq":
             safe_chunks = _sanitize_context_for_external(context_chunks)
             if not safe_chunks:
                 return config.REFUSAL_MESSAGE, False
-            return _call_groq(_build_messages(question, safe_chunks, history)), False
-        raise SystemExit(f"Unknown LLM_BACKEND: {config.LLM_BACKEND}")
-    except SystemExit:
-        raise
-    except Exception:
-        return fallback_text, True
+            return _call_groq(_build_messages(question, safe_chunks, contract=contract), timeout=timeout), False
+        raise ValueError(f"Unknown LLM_BACKEND: {config.LLM_BACKEND}")
+    except Exception as exc:
+        logger.warning("Answer generation unavailable (%s)", type(exc).__name__)
+        return config.UNAVAILABLE_MESSAGE, True
+    finally:
+        _generation_slots.release()
 
 
 def _is_compound_request(question: str) -> bool:
@@ -171,6 +236,9 @@ def _select_context_chunks(
 ) -> list[dict]:
     if not reranked_chunks:
         return reranked_chunks
+    focused = focused_chunks(intent.entities, reranked_chunks) if intent is not None else None
+    if focused is not None:
+        return focused
     if intent is not None and "additional_hobbies" in intent.entities:
         return reranked_chunks[:4]
     if intent is not None and "favorites_overview" in intent.entities:
@@ -281,6 +349,7 @@ def answer_or_refuse(
     enforce_confidence_threshold: bool = True,
     intent_question: str | None = None,
     intent_override: QueryIntent | None = None,
+    generation_timeout: float | None = None,
 ) -> dict:
     started = time.perf_counter()
     semantic_question = intent_question.strip() if intent_question else question
@@ -294,6 +363,8 @@ def answer_or_refuse(
     # entities (for example “Qiu” or “Apex Legends not”), while the formatter
     # still needs those entities to answer the user's actual contract.
     planned_intent = build_query_plan(question).intent
+    if not config.SEMANTIC_CONTRACT_ENABLED:
+        planned_intent = replace(planned_intent, contract=None)
     if intent_override is not None:
         intent = intent_override
     elif intent_question and semantic_question != question:
@@ -306,8 +377,12 @@ def answer_or_refuse(
     else:
         intent = planned_intent
 
+    if intent.kind == "privacy" or is_sensitive_request(question):
+        return _result("refused", config.REFUSAL_MESSAGE, reason="privacy")
+
     if intent.kind == "small_talk" or is_small_talk(question):
-        return _result("answered", SMALL_TALK_RESPONSE, confidence=1.0, reason="small_talk")
+        from backend.generation.policies import small_talk_answer
+        return _result("answered", small_talk_answer(question), confidence=1.0, reason="small_talk")
 
     if intent.kind == "product_meta" or is_product_meta_request(question):
         return _result("answered", product_meta_answer(question), confidence=1.0, reason="product_meta")
@@ -315,13 +390,30 @@ def answer_or_refuse(
     if intent.kind == "unknown" and intent.followup:
         return _result("clarification", config.CLARIFICATION_MESSAGE, reason="ambiguous_followup")
 
-    if intent.kind in {"privacy", "ambiguous", "unsupported"} or is_ambiguous_request(question) or is_non_profile_request(question):
+    if intent.kind in {"privacy", "ambiguous", "unsupported"} or is_ambiguous_request(question) or is_non_profile_request(question) or unavailable_profile_detail(semantic_question, intent) or unavailable_profile_detail(question, intent):
         reason = {
             "privacy": "privacy",
             "unsupported": "unsupported",
             "ambiguous": "ambiguous_request",
         }.get(intent.kind, "unsupported")
         return _result("refused", config.REFUSAL_MESSAGE, reason=reason)
+
+    # Retrieval is allowed to be broad, but only evidence authorized for the
+    # contract may reach a formatter or the model. Unsupported relationships
+    # stop here so a related summary cannot become a substitute answer.
+    if config.SEMANTIC_CONTRACT_ENABLED and intent.contract is not None:
+        capability = capability_for(intent.contract, intent)
+        if capability is None:
+            return _result("refused", config.REFUSAL_MESSAGE, reason="unsupported")
+        eligible = eligible_evidence(intent.contract, intent, reranked_chunks)
+        if not eligible and reranked_chunks and all(not chunk.get("metadata") for chunk in reranked_chunks):
+            # Preserve the low-level answer_or_refuse contract for callers
+            # that supply an already selected fixture without metadata. The
+            # public API always passes metadata-bearing corpus chunks.
+            eligible = reranked_chunks
+        if not eligible:
+            return _result("refused", config.REFUSAL_MESSAGE, reason="missing_evidence")
+        reranked_chunks = eligible
 
     if not reranked_chunks or is_sensitive_request(question):
         return _result(
@@ -332,6 +424,8 @@ def answer_or_refuse(
 
     top_score = float(reranked_chunks[0].get("score", 0.0))
     top_chunks = _select_context_chunks(semantic_question, reranked_chunks, intent)
+    if not top_chunks:
+        return _result("refused", config.REFUSAL_MESSAGE, reason="missing_evidence")
     sources = _build_sources(top_chunks)
     if enforce_confidence_threshold and top_score < config.CONFIDENCE_THRESHOLD:
         return _result(
@@ -343,6 +437,8 @@ def answer_or_refuse(
         )
 
     structured = format_structured_answer(semantic_question, top_chunks, intent)
+    if structured == config.REFUSAL_MESSAGE:
+        return _result("refused", config.REFUSAL_MESSAGE, reason="unsupported_detail")
     if structured is not None and not _is_compound_request(question):
         elapsed = round((time.perf_counter() - started) * 1000, 1)
         return _result(
@@ -355,9 +451,10 @@ def answer_or_refuse(
         )
 
     generation_started = time.perf_counter()
-    answer_text, fallback_used = generate_answer(question, top_chunks, history)
+    generation_options = {"timeout": generation_timeout} if generation_timeout is not None else {}
+    answer_text, fallback_used = generate_answer(semantic_question, top_chunks, history, **generation_options)
     generation_ms = round((time.perf_counter() - generation_started) * 1000, 1)
-    filtered = normalize_refusal(apply_pii_filter(answer_text))
+    filtered = normalize_refusal(apply_pii_filter(attribute_profile_quote(answer_text, top_chunks)))
 
     if top_chunks and _is_structured_summary(top_chunks[0]) and (
         filtered == config.REFUSAL_MESSAGE
@@ -368,14 +465,19 @@ def answer_or_refuse(
         if structured_fallback is not None:
             filtered = structured_fallback
 
-    if filtered == config.REFUSAL_MESSAGE:
-        status = "refused"
-        reason = "model_refusal"
-    elif fallback_used:
+    draft = GeneratedDraft(
+        answer=filtered,
+        answered_relation=intent.relation,
+        evidence_ids=tuple(str(chunk.get("chunk_id", "")) for chunk in top_chunks),
+    )
+    if fallback_used:
         status = "unavailable"
         filtered = config.UNAVAILABLE_MESSAGE
         reason = "llm_unavailable"
-    elif not _check_grounding(filtered, top_chunks):
+    elif filtered == config.REFUSAL_MESSAGE:
+        status = "refused"
+        reason = "model_refusal"
+    elif config.SEMANTIC_CONTRACT_ENABLED and not draft.validate(intent.contract, top_chunks):
         status = "refused"
         filtered = config.REFUSAL_MESSAGE
         reason = "grounding_failed"

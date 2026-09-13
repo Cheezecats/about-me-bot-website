@@ -71,8 +71,7 @@ User Question
 
 ## 2. Mac Mini Deployment Setup
 
-The backend runs on a **Mac mini (M4, 16 GB RAM)**. The BM25 index and reranker
-inference run on-device; the LLM runs locally via Ollama.
+The backend runs on a **Mac mini (M4, 16 GB RAM)**. BM25 retrieval runs on-device; the LLM runs locally via Ollama. The optional reranker is disabled by default.
 
 ### 2.1 Prerequisites
 
@@ -103,24 +102,18 @@ ollama run qwen2.5:3b "Say hello in one sentence."
 
 ### 2.3 Install Python dependencies
 
-The project uses `pyproject.toml` for dependency management. Install the core
-runtime dependencies plus the ML extras (needed for the reranker):
+Use the checked-in `uv.lock` with Python 3.12+:
 
 ```bash
-# From the project root
-pip install fastapi uvicorn python-dotenv httpx ollama
-
-# ML dependencies required to load either reranker backend
-pip install torch transformers sentence-transformers
-
-# Development / testing
-pip install pytest
+uv sync --frozen --extra dev
 ```
 
-Alternatively, install everything at once:
+The default API and CLI do not import PyTorch or Transformers. For the complete
+backend test suite, training tools or an explicitly enabled reranker, install the
+optional ML dependencies:
 
 ```bash
-pip install -e ".[ml,dev]"
+uv sync --frozen --extra ml --extra dev
 ```
 
 ### 2.4 Set environment variables
@@ -136,7 +129,7 @@ LLM_BACKEND=ollama
 LLM_MODEL=qwen2.5:3b
 
 # Comma-separated list of allowed CORS origins.
-# Include your GitHub Pages URL and the tunnel URL (once created).
+# Include the frontend origin (scheme and host, without a repository path).
 CORS_ORIGINS=https://cheezecats.github.io,http://localhost:5173,https://ask-james.example.com
 
 # Restrict which Host headers the API accepts. Add the hostname used by the
@@ -179,7 +172,7 @@ uvicorn backend.api:app --host 127.0.0.1 --port 8000
 
 On startup the API will:
 
-1. Load (or build) the BM25 index from `data/bm25_index.json`.
+1. Validate the cached BM25 index against the filtered corpus; rebuild it when the content or tokenization changes.
 2. Load the knowledge-base chunks from `data/chunks.json`.
 3. Load the configured reranker only when `RERANKER_ENABLED=true`.
    - Otherwise, the API starts in **BM25-only mode**. Responses expose
@@ -274,8 +267,7 @@ sudo cloudflared service install
 
 This installs `cloudflared` as a launchd service that starts on boot.
 
-> **Important:** Add the tunnel URL to your `CORS_ORIGINS` environment variable
-> so browser requests from the frontend are accepted.
+> Add the frontend origin to `CORS_ORIGINS` and the public API hostname to `ALLOWED_HOSTS`. They serve different purposes.
 
 ---
 
@@ -287,7 +279,9 @@ lives in [src/components/ChatBot.tsx](../src/components/ChatBot.tsx).
 ### 4.1 Build the React app
 
 ```bash
-npm install
+npm ci
+npm run typecheck
+npm test
 npm run build
 ```
 
@@ -334,14 +328,32 @@ The Vite configuration automatically uses the repository path when GitHub
 Actions builds this project as a Pages project site. For a custom domain, add
 the repository variable `VITE_BASE_PATH=/` to override that behavior.
 
-### 4.4 Alternative: serve via FastAPI
+### 4.4 Static hosting and the legacy routes
 
-If you prefer a single-origin deployment, place the built `dist/` contents into
-a `views/` directory in the project root. The API in [backend/api.py](../backend/api.py)
-automatically serves `views/index.html` at `/` and the other routes
-(`/essays`, `/photography`, `/videos`, `/hobbies`) when the `views/` directory
-exists (see [api.py:204-224](../backend/api.py#L204-L224)). In this mode, set
-`VITE_CHAT_API_URL` to `/api/chat` (the default) so requests stay same-origin.
+Serve the Vite `dist/` directory using GitHub Pages or a static host with SPA
+fallback. For a single-origin deployment, configure a reverse proxy to serve
+`dist/`, fall back to `index.html`, and forward `/api` to FastAPI. Build with the
+correct `VITE_BASE_PATH` and `VITE_CHAT_API_URL=/api/chat` for that arrangement.
+
+The API's existing `views/` handlers are legacy multipage routes expecting
+separate `essays.html`, `photography.html`, and similar files. Copying a Vite
+build into `views/` does **not** configure SPA hosting or its bundled assets.
+
+### 4.5 Current tunnel and service assumptions
+
+The repository's JamChat product description records GitHub Pages plus a
+Cloudflare Quick Tunnel to the Mac backend. A Quick Tunnel address can change
+when restarted; the frontend embeds its API URL at build time. The named-tunnel
+instructions above are an optional route to a stable hostname, not evidence
+that a named tunnel is already configured.
+
+`deploy/com.jamchat.backend.plist.template` supplies a launchd backend template.
+Its project-root placeholders, local user/runtime paths and log directory need
+to match the host. Use a single API worker with the current in-memory session
+store and rate limiter. Changes to KB files, facts and Python settings require
+an API restart. This review did not change or restart the deployed service,
+create a tunnel, or publish the frontend.
+
 
 ---
 
@@ -406,17 +418,7 @@ stage:
 curl http://localhost:8000/api/health
 ```
 
-**All systems nominal:**
-
-```json
-{
-  "status": "ok",
-  "reranker_loaded": true,
-  "bm25_loaded": true
-}
-```
-
-**BM25-only fallback (reranker model missing):**
+**Shallow API check (does not test Ollama):**
 
 ```json
 {
@@ -426,12 +428,18 @@ curl http://localhost:8000/api/health
 }
 ```
 
-The implementation is in [backend/api.py:83-89](../backend/api.py#L83-L89).
-Use this endpoint for monitoring and uptime checks via the Cloudflare Tunnel:
+A disabled reranker is the intentional default. Check Ollama separately with:
 
 ```bash
-curl https://ask-james.example.com/api/health
+curl 'http://localhost:8000/api/health?deep=true'
 ```
+
+A reachable API with working BM25 and an unavailable model returns
+`status: "degraded"`, `bm25_loaded: true`, and `llm_ready: false`. The frontend
+shows limited availability because structured facts can still answer. A normal
+shallow check reports `llm_ready: null`. Deep checks verify model availability,
+not an actual inference. The response also exposes the configured model,
+retrieval method, planner flag, public chunk count and uptime.
 
 ---
 
@@ -439,8 +447,7 @@ curl https://ask-james.example.com/api/health
 
 ### Ollama is not running
 
-**Symptom:** Chat requests return HTTP 503 with `status: "unavailable"`, or the
-API logs show `Ollama generation timed out`.
+**Symptom:** Generated-answer requests return `status: "unavailable"` (normally HTTP 200), or deep health reports `llm_ready: false`. Unexpected API processing errors use HTTP 503; rate limiting uses HTTP 429.
 
 **Cause:** The Ollama daemon is not running on `localhost:11434`, or it crashed.
 
@@ -461,9 +468,7 @@ curl http://localhost:11434/api/tags
 ```
 
 The generation code in [backend/generation/answer.py](../backend/generation/answer.py)
-has a 30-second timeout (`OLLAMA_TIMEOUT`). If Ollama is slow to respond (e.g.,
-the model is still loading on first call), the first request may time out.
-Subsequent requests should be fast once the model is warm in memory.
+uses a remaining 28-second generation budget in the API, a 384-token output cap, and two model-call slots per process. The browser times out after 35 seconds. If the model is still loading, retry after it warms up. A timeout does not guarantee that Ollama immediately stops its server-side computation.
 
 ### Model is missing in Ollama
 
@@ -481,9 +486,9 @@ available models with `ollama list`.
 ### Reranker not loaded (BM25-only fallback)
 
 **Symptom:** `/api/health` returns `reranker_loaded: false`, and chat responses
-have `fallback_used: true`.
+have `reranker_fallback_used: true`.
 
-**Cause:** The `models/reranker/` directory does not exist or is incomplete (see
+**Cause:** First check `reranker_enabled`. False is normal. When enabled with the fine-tuned backend, the `models/reranker/` directory may be missing or incomplete (see
 [inference.py:22-26](../backend/reranker/inference.py#L22-L26)).
 
 **Fix:**
@@ -542,3 +547,14 @@ ingress hostname doesn't match.
    `http://localhost:8000`.
 3. Check `cloudflared` logs: `cloudflared tunnel run ask-james` (run in
    foreground to see errors).
+
+### Navigation catalog and photo anchors
+
+The navigation feature adds no network service or secret. Ship
+`data/chat_destinations.json` with the backend and build the frontend from the
+same revision; restart the API after catalog/profile updates. Regenerate the
+existing `data/content_export.json` when featured photos change so the chatbot
+can verify the selection count. The build generates intrinsic JPEG thumbnail
+geometry to prevent lazy images from displacing photo anchors. Internal action
+links use React Router's configured basename and retain the existing Pages
+fallback; do not prepend the repository path inside the catalog itself.

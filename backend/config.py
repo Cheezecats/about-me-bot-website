@@ -45,6 +45,9 @@ MAX_REQUESTS_PER_MINUTE = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
 SESSION_TTL_SECONDS = 60 * 60
 MAX_CONVERSATIONS = 1000
 QUERY_PLANNER_ENABLED = os.getenv("QUERY_PLANNER_ENABLED", "true").lower() in {"1", "true", "yes"}
+# Temporary rollback switch for the shared semantic contract path. Keep it
+# enabled by default; disabling it restores the pre-contract answer gate.
+SEMANTIC_CONTRACT_ENABLED = os.getenv("SEMANTIC_CONTRACT_ENABLED", "true").lower() in {"1", "true", "yes"}
 RETRIEVAL_CANDIDATE_MULTIPLIER = 3
 
 BM25_K1 = 1.5
@@ -56,6 +59,9 @@ LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
 LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_HEALTH_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_HEALTH_TIMEOUT_SECONDS", "1.5"))
+CHAT_TIMEOUT_SECONDS = 28.0
+MAX_LLM_CONCURRENCY = 2
+LLM_MAX_OUTPUT_TOKENS = 384
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
@@ -80,6 +86,7 @@ CLARIFICATION_MESSAGE = (
 
 GROUNDING_SYSTEM_PROMPT = (
     "You are an assistant that answers questions about James Sui, a student in Shanghai. "
+    "Refer to James in the third person; you are not James. "
     "Answer the user's question using ONLY the provided context. "
     "If the context does not contain the answer, respond exactly with the configured refusal message. "
     "Do not guess, do not infer ages from years, do not infer favorites from general usage, "

@@ -1,5 +1,9 @@
 {
   "_sources": {
+    "public_profile": ["kb_extra/bio.md"],
+    "personality_summary": ["kb_extra/personality.md"],
+    "dislikes": ["kb_extra/favorites.md"],
+    "photographed_locations": ["kb_extra/travel.md"],
     "favorite_games": ["kb_extra/favorites.md", "kb_extra/gaming.md"],
     "favorite_food": ["kb_extra/favorites.md", "kb_extra/hobbies.md"],
     "favorite_season": ["kb_extra/favorites.md"],
@@ -23,7 +27,8 @@
     "writing": ["kb_extra/writing.md"],
     "writing_details": ["kb_extra/writing.md"],
     "achievements": ["kb_extra/achievements.md"],
-    "apex_rank": ["kb_extra/apex_rank.md"]
+    "apex_rank": ["kb_extra/apex_rank.md"],
+    "favorite_football_team": ["kb_extra/favorites.md"]
   },
   "favorite_games": {
     "competitive": ["Apex Legends", "CS:GO/CS2", "Valorant"],
@@ -39,7 +44,10 @@
     "detail": "especially with snow"
   },
   "dislikes": [
-    {"item": "summer", "reason": "sweating doesn't feel nice"}
+    {
+      "item": "summer",
+      "reason": "sweating doesn't feel nice"
+    }
   ],
   "favorite_music": {
     "song": "君の神様になりたい",
@@ -78,15 +86,7 @@
     "tagline": "Tech, Motion, and Perspective"
   },
   "personality_summary": "James describes himself as a nice, outgoing self-learner who enjoys engineering, teamwork, and exploring interests deeply. He values hard work, politeness, collaboration, and making technology more accessible.",
-  "hobbies": [
-    "photography and videography",
-    "gaming",
-    "sports",
-    "electric guitar",
-    "digital drawing",
-    "PC building",
-    "using AI/LLM tools for learning"
-  ],
+  "hobbies": ["photography and videography", "gaming", "sports", "electric guitar", "digital drawing", "PC building", "using AI/LLM tools for learning"],
   "guitar": {
     "instrument": "electric guitar",
     "started": 2025,
@@ -100,11 +100,27 @@
   },
   "photographed_locations": ["Hokkaido, Japan", "Tuscany, Italy", "Athens, Greece"],
   "sports": [
-    {"name": "skiing", "started": 2013},
-    {"name": "ice hockey", "started": 2015, "position": "defender"},
-    {"name": "tennis", "started": 2018},
-    {"name": "floorball", "started": 2023},
-    {"name": "soccer", "position": "forward"}
+    {
+      "name": "skiing",
+      "started": 2013
+    },
+    {
+      "name": "ice hockey",
+      "started": 2015,
+      "position": "defender"
+    },
+    {
+      "name": "tennis",
+      "started": 2018
+    },
+    {
+      "name": "floorball",
+      "started": 2023
+    },
+    {
+      "name": "soccer",
+      "position": "forward"
+    }
   ],
   "travel": {
     "visited": ["Japan", "Greece", "Italy", "Xinjiang"],
@@ -115,21 +131,49 @@
     "school": "YK Pao School",
     "program": "IBDP",
     "grade": "Grade 11",
+    "grade_as_of": "2025–2026 academic year",
     "higher_level_subjects": ["Computer Science", "Mathematics AA", "Physics"],
     "expected_graduation": 2027,
     "previous_curriculum": "IGCSE",
     "self_taught": ["Python", "SolidWorks"]
   },
   "projects": [
-    {"name": "React/TypeScript personal website", "tags": ["web", "typescript", "react"]},
-    {"name": "FFT guitar tuner", "tags": ["physics", "audio", "web"]},
-    {"name": "Flutter medical recovery platform", "tags": ["flutter", "dart", "ai", "full-stack"]},
-    {"name": "Economics graphing tool", "tags": ["python", "economics"]},
-    {"name": "SAT vocabulary app", "tags": ["web", "typescript", "education"]},
-    {"name": "LLM hallucination evaluator", "tags": ["ai", "llm", "research", "python"]},
-    {"name": "Histology classifier benchmark", "tags": ["ai", "computer vision", "research", "python"]},
-    {"name": "Uniswap V3 research experiment", "tags": ["solidity", "blockchain", "research"]},
-    {"name": "FTC robotics project", "tags": ["robotics", "hardware"]}
+    {
+      "name": "React/TypeScript personal website",
+      "tags": ["web", "typescript", "react"]
+    },
+    {
+      "name": "FFT guitar tuner",
+      "tags": ["physics", "audio", "web"]
+    },
+    {
+      "name": "Flutter medical recovery platform",
+      "tags": ["flutter", "dart", "ai", "full-stack"]
+    },
+    {
+      "name": "Economics graphing tool",
+      "tags": ["python", "economics"]
+    },
+    {
+      "name": "SAT vocabulary app",
+      "tags": ["web", "typescript", "education"]
+    },
+    {
+      "name": "LLM hallucination evaluator",
+      "tags": ["ai", "llm", "research", "python"]
+    },
+    {
+      "name": "Histology classifier benchmark",
+      "tags": ["ai", "computer vision", "research", "python"]
+    },
+    {
+      "name": "Uniswap V3 research experiment",
+      "tags": ["solidity", "blockchain", "research"]
+    },
+    {
+      "name": "FTC robotics project",
+      "tags": ["robotics", "hardware"]
+    }
   ],
   "programming_languages": ["Python", "C", "C++", "TypeScript", "Dart (Flutter)", "Solidity"],
   "coding_learning": {
@@ -141,26 +185,15 @@
   "gaming_reasons": {
     "answer": "James enjoys gaming because it helps him relax and decompress after school, while also giving him a way to stay connected with friends and peers."
   },
-  "writing": [
-    "LLM hallucination research paper",
-    "Histology classification research paper",
-    "Combined research paper for 丘成桐中学科学奖",
-    "NYT Growing up with AI submission",
-    "TOK Exhibition",
-    "Extended Essay on Uniswap V3",
-    "IB Physics IA on an FFT guitar tuner",
-    "Math IA applying a Markov chain model to Apex Legends"
-  ],
+  "writing": ["LLM hallucination research paper", "Histology classification research paper", "Combined research paper for 丘成桐中学科学奖", "NYT Growing up with AI submission", "TOK Exhibition", "Extended Essay on Uniswap V3", "IB Physics IA on an FFT guitar tuner", "Math IA applying a Markov chain model to Apex Legends"],
   "writing_details": {
     "extended_essay": "James's Extended Essay is an interdisciplinary Computer Science and Economics essay about Uniswap V3, including capital efficiency, slippage, and impermanent loss.",
     "math_ia": "James's Math IA applies a Markov chain packet-loss model to Apex Legends, using a 20Hz tick rate and maximum-likelihood matrices.",
     "physics_ia": "James's IB Physics IA investigates the relationship between guitar-string gauge, tension, and fundamental frequency using an FFT guitar tuner."
   },
-  "achievements": [
-    "2025 Physics Bowl National Silver Award",
-    "National top 5% placement in China Thinks Big",
-    "Research publication in the Curieux Academic Journal",
-    "Participation in the Lumiere Research Program",
-    "Participation in the 丘成桐中学科学奖 (Qiu Competition)"
-  ]
+  "achievements": ["2025 Physics Bowl National Silver Award", "National top 5% placement in China Thinks Big", "Research publication in the Curieux Academic Journal", "Participation in the Lumiere Research Program", "Participation in the 丘成桐中学科学奖 (Qiu Competition)"],
+  "favorite_football_team": {
+    "team": "Real Madrid",
+    "detail": "especially the Cristiano Ronaldo era"
+  }
 }

@@ -20,13 +20,14 @@ SENSITIVE_REQUEST_PATTERNS = [
     r"\bprivate\s+information\b",
     r"\bignore\s+(?:your|the)\s+rules?\b",
     r"\bmedical\s+history\b",
-    r"\bparents?\b",
+    r"\b(?:parents?|father|mother|dad|mom|mum|siblings?)\b",
     r"\bfamily(?:'s|)\s+income\b",
     r"\bdorm\s+room\b",
 ]
 
 SMALL_TALK_PATTERNS = [
     r"^(?:hi|hello|hey|hiya|yo|good morning|good afternoon|good evening|hey there|how are you|how's it going)[!.?,\s]*$",
+    r"^(?:thanks|thank you|thanks a lot|cheers|cool|nice|got it|okay|ok|bye|goodbye)[!.?,\s]*$",
 ]
 SMALL_TALK_RESPONSE = (
     "Hi! Ask me about James's photography, videos, essays, hobbies, sports, or projects."
@@ -99,6 +100,16 @@ def is_small_talk(question: str) -> bool:
     return _matches_any(question, SMALL_TALK_PATTERNS)
 
 
+def small_talk_answer(question: str) -> str:
+    if re.match(r"(?:thanks|thank you|cheers)", question, re.IGNORECASE):
+        return "You're welcome! Feel free to ask more about James."
+    if re.match(r"(?:bye|goodbye)", question, re.IGNORECASE):
+        return "Bye! Thanks for stopping by."
+    if re.match(r"(?:cool|nice|got it|okay|ok)\b", question, re.IGNORECASE):
+        return "Feel free to ask more about James."
+    return SMALL_TALK_RESPONSE
+
+
 def is_ambiguous_request(question: str) -> bool:
     return _matches_any(question, AMBIGUOUS_REQUEST_PATTERNS)
 
@@ -108,6 +119,21 @@ def is_non_profile_request(question: str) -> bool:
 
 
 def is_product_meta_request(question: str) -> bool:
+    from backend.generation.evidence import focused_subjects
+    # Architecture, limitations and fine-tuning can describe James's research
+    # projects too. A named project keeps its own subject unless JamChat is
+    # explicitly requested alongside it.
+    if (focused_subjects(question) or re.search(r"\b(?:uniswap|guitar tuner|zhiyu|medical platform)\b", question, re.IGNORECASE)) and not re.search(
+        r"\b(?:jamchat|this (?:chat|bot|chatbot)|your (?:architecture|model|limitations))\b", question, re.IGNORECASE
+    ):
+        return False
+    # Research limitations/results are profile relationships when the visitor
+    # names research, a paper, an essay, or a method. They are not a request
+    # for JamChat's product limitations.
+    if re.search(r"\b(?:paper|research|essay|study|methodology|histology|llm)\b", question, re.IGNORECASE) and re.search(
+        r"\b(?:limitation|limitations|result|results|finding|findings|conclusion|conclusions)\b", question, re.IGNORECASE
+    ) and not re.search(r"\b(?:jamchat|this (?:chat|bot|chatbot)|your)\b", question, re.IGNORECASE):
+        return False
     return _matches_any(question, PRODUCT_META_PATTERNS)
 
 

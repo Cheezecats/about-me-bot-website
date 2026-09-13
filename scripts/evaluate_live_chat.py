@@ -4,6 +4,7 @@ import argparse
 import json
 import statistics
 import time
+import uuid
 from pathlib import Path
 
 import httpx
@@ -30,6 +31,7 @@ def evaluate(
 ) -> dict:
     results: list[dict] = []
     latencies: list[float] = []
+    run_id = uuid.uuid4().hex
     with httpx.Client(timeout=timeout) as client:
         for case_index, case in enumerate(cases):
             for repeat in range(repeats):
@@ -39,7 +41,7 @@ def evaluate(
                         endpoint,
                         json={
                             "question": case["question"],
-                            "session_id": f"live-eval-{case_index}-{repeat}",
+                            "session_id": f"live-eval-{run_id}-{case_index}-{repeat}",
                         },
                     )
                     latency_ms = round((time.perf_counter() - started) * 1000, 1)

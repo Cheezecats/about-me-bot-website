@@ -55,6 +55,8 @@ def _add_overlap(chunks: list[str]) -> list[str]:
     for i in range(1, len(chunks)):
         prev_sents = _split_sentences(chunks[i - 1])
         overlap = prev_sents[-OVERLAP_SENTENCES:] if prev_sents else []
+        if sum(len(sentence.split()) for sentence in overlap) + len(chunks[i].split()) > config.MAX_CHUNK_WORDS:
+            overlap = []
         if overlap:
             result.append(" ".join(overlap) + " " + chunks[i])
         else:
@@ -258,8 +260,41 @@ def build_chunks(content_path: Path, extra_dir: Path) -> list[dict]:
     return chunks
 
 
+def preserve_chunk_ids(chunks: list[dict], previous: list[dict]) -> list[dict]:
+    """Keep QA/source references stable when earlier Markdown sections are added."""
+    def key(chunk: dict) -> tuple[str, str, str]:
+        metadata = chunk["metadata"]
+        return metadata["source"], metadata["category"], metadata["title"]
+
+    remaining = list(previous)
+    matched: dict[int, dict] = {}
+    # Match unchanged content first (especially repeated photo headings).
+    for index, chunk in enumerate(chunks):
+        old = next((item for item in remaining if key(item) == key(chunk) and item["text"] == chunk["text"]), None)
+        if old is not None:
+            matched[index] = old
+            remaining.remove(old)
+    for index, chunk in enumerate(chunks):
+        if index not in matched:
+            old = next((item for item in remaining if key(item) == key(chunk)), None)
+            if old is not None:
+                matched[index] = old
+                remaining.remove(old)
+    used = {item["chunk_id"] for item in previous}
+    for index, chunk in enumerate(chunks):
+        if old := matched.get(index):
+            chunk["chunk_id"] = old["chunk_id"]
+            chunk["metadata"]["section_index"] = old["metadata"]["section_index"]
+        elif chunk["chunk_id"] in used:
+            chunk["chunk_id"] += "_" + _content_hash(chunk["text"])
+        used.add(chunk["chunk_id"])
+    return sorted(chunks, key=lambda chunk: chunk["chunk_id"])
+
+
 def main() -> None:
     chunks = build_chunks(config.CONTENT_EXPORT_PATH, config.KB_EXTRA_DIR)
+    if config.CHUNKS_PATH.exists():
+        chunks = preserve_chunk_ids(chunks, json.loads(config.CHUNKS_PATH.read_text(encoding="utf-8")))
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     config.CHUNKS_PATH.write_text(
         json.dumps(chunks, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

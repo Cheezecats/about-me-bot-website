@@ -4,6 +4,9 @@ import asyncio
 import os
 import re
 import time
+import logging
+from dataclasses import replace
+from typing import TYPE_CHECKING
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,12 +23,17 @@ from backend.generation.answer import (
     merge_compound_results,
     split_compound_question,
 )
-from backend.generation.conversation import ConversationState, ConversationStore
+from backend.generation.conversation import ConversationState, ConversationStore, requests_shorter_answer, shorten_list_answer
+from backend.generation.navigation import navigation_reply, answer_actions, catalog
 from backend.generation.intent import QueryIntent, detect_intent
 from backend.generation.query_plan import build_query_plan
 from backend.generation.suggestions import build_follow_up_questions
-from backend.reranker.inference import Reranker, RerankerUnavailable
 from backend.retrieval.bm25 import BM25Index, load_chunks, load_or_build, retrieve
+
+if TYPE_CHECKING:
+    from backend.reranker.inference import Reranker
+
+logger = logging.getLogger(__name__)
 
 _ROOT = config.ROOT_DIR
 
@@ -67,9 +75,11 @@ async def lifespan(app: FastAPI):
     app.state.query_planner_enabled = config.QUERY_PLANNER_ENABLED
     if config.RERANKER_ENABLED:
         try:
+            from backend.reranker.inference import Reranker
             app.state.reranker = Reranker()
             app.state.reranker_loaded = True
-        except (SystemExit, RerankerUnavailable):
+        except (ImportError, RuntimeError, OSError):
+            logger.warning("Optional reranker could not load; using BM25", exc_info=True)
             app.state.reranker = None
             app.state.reranker_loaded = False
     if config.LLM_BACKEND == "groq" and not config.GROQ_API_KEY:
@@ -144,6 +154,7 @@ class ChatResponse(BaseModel):
     planner_confidence: float = 0.0
     suggested_questions: list[str] = []
     normalization_applied: bool = False
+    actions: list[str] = Field(default_factory=list)
 
 
 def _display_confidence(raw_score: float, *, status: str, has_sources: bool, reason: str) -> float:
@@ -161,6 +172,88 @@ def _display_confidence(raw_score: float, *, status: str, has_sources: bool, rea
     return round(raw_score / (raw_score + 10.0), 3)
 
 
+_CONTEXT_REFERENCE = re.compile(
+    r"\b(?:there|that|this|those|these|them|it|one|first|second|third|fourth|fifth|else|more)\b",
+    re.IGNORECASE,
+)
+
+
+def _clause_contract(
+    clause: str,
+    base_query: str,
+    plan,
+    state: ConversationState | None,
+):
+    """Keep retrieval rewrites from changing the requested answer relation."""
+
+    contract = plan.intent.contract
+    if contract is None or base_query == clause:
+        return contract
+
+    raw_contract = build_query_plan(clause).intent.contract
+    if raw_contract is None:
+        return contract
+
+    # Prefixes and selected-list items are useful retrieval anchors, but they
+    # are not authoritative for the user's operator/object. Keep explicit
+    # clause fields whenever the follow-up is not resolving a reference.
+    resolves_reference = bool(_CONTEXT_REFERENCE.search(clause)) or raw_contract.domain is None
+    if state is not None and state.last_subject == "instrument" and raw_contract.domain == "music":
+        resolves_reference = True
+    if not resolves_reference:
+        contract = replace(
+            contract,
+            domain=raw_contract.domain or contract.domain,
+            relation=raw_contract.relation if raw_contract.relation != "unresolved" else contract.relation,
+            object_type=raw_contract.object_type if raw_contract.object_type != "unresolved" else contract.object_type,
+            constraints=raw_contract.constraints or contract.constraints,
+            response_mode=raw_contract.response_mode,
+        )
+    elif raw_contract.constraints.get("ordinal") is not None:
+        # The selected item's title may contain a fact verb such as
+        # “started”; an ordinal follow-up is still asking for that item's
+        # overview, not for the verb embedded in the retrieval label.
+        contract = replace(contract, relation="lists")
+
+    inherited = bool(state is not None and (resolves_reference or raw_contract.domain is None))
+    if inherited:
+        return replace(
+            contract,
+            original_text=clause,
+            context_resolution="inherited",
+            antecedent_id=(state.last_subject if state and state.last_subject else "james"),
+            provenance="memory",
+        )
+    return replace(contract, original_text=clause)
+
+
+def _navigation_contract(question: str, plan, state: ConversationState | None):
+    """Resolve navigation references before navigation mutates session state."""
+
+    contract = plan.intent.contract if plan else None
+    if contract is None or state is None or not _CONTEXT_REFERENCE.search(question):
+        return contract
+
+    prior = state.last_contract
+    if prior is None:
+        return contract
+
+    if len(getattr(state, "navigation_subjects", ())) > 1:
+        return contract
+
+    # Typed references retain the current relation/object (e.g. "that song");
+    # a bare destination reference inherits the preceding destination.
+    typed_reference = bool(re.search(r"\b(?:that|this)\s+(?:song|artist|band)\b", question, re.IGNORECASE))
+    resolved = contract if typed_reference and contract.domain == "music" else prior
+    return replace(
+        resolved,
+        original_text=question,
+        context_resolution="inherited",
+        antecedent_id=prior.subject or state.last_subject or "james",
+        provenance="memory",
+    )
+
+
 @app.get("/api/health")
 async def health(deep: bool = False):
     llm_ready: bool | None = None
@@ -168,12 +261,15 @@ async def health(deep: bool = False):
         try:
             async with httpx.AsyncClient(timeout=config.OLLAMA_HEALTH_TIMEOUT_SECONDS) as client:
                 response = await client.get(f"{config.OLLAMA_HOST}/api/tags")
-            names = {model.get("name", "") for model in response.json().get("models", [])}
-            llm_ready = response.is_success and config.LLM_MODEL in names
-        except (httpx.HTTPError, ValueError):
+            payload = response.json()
+            models = payload.get("models", []) if isinstance(payload, dict) else []
+            names = {model.get("name", "") for model in models if isinstance(model, dict)} if isinstance(models, list) else set()
+            expected = config.LLM_MODEL if ":" in config.LLM_MODEL else f"{config.LLM_MODEL}:latest"
+            llm_ready = response.is_success and (config.LLM_MODEL in names or expected in names)
+        except (httpx.HTTPError, ValueError, TypeError):
             llm_ready = False
     return {
-        "status": "ok" if llm_ready is not False else "degraded",
+        "status": "ok" if llm_ready is not False and getattr(app.state, "bm25_index", None) is not None else "degraded",
         "reranker_enabled": getattr(app.state, "reranker_enabled", False),
         "reranker_loaded": getattr(app.state, "reranker_loaded", False),
         "bm25_loaded": getattr(app.state, "bm25_index", None) is not None,
@@ -204,14 +300,38 @@ async def chat(request: ChatRequest, http_request: Request):
         )
         return JSONResponse(status_code=429, content=limited.model_dump())
 
+    state = app.state.conversations.get(request.session_id) if request.session_id else None
+    if state is not None:
+        async with state.lock:
+            return await _answer_chat(request, state)
+    return await _answer_chat(request, None)
+
+
+async def _answer_chat(request: ChatRequest, state: ConversationState | None):
+    deadline = time.monotonic() + config.CHAT_TIMEOUT_SECONDS
     question = request.question
+    questions = split_compound_question(question)
+    navigation_plan = build_query_plan(question) if config.SEMANTIC_CONTRACT_ENABLED else None
+    navigation_contract = _navigation_contract(question, navigation_plan, state) if navigation_plan else None
+    navigation = (
+        navigation_reply(question, state, contract=navigation_contract)
+        if len(questions) == 1
+        else None
+    )
+    if navigation is not None:
+        if state is not None and navigation['status'] == 'refused':
+            state.navigation_subjects = ()
+        if 'song-youtube' in navigation['actions']:
+            navigation['suggested_questions'] = ["Show me his favorite artist", "Show me his favorite bands"]
+        if state is not None and navigation['status'] == 'answered':
+            state.record_navigation(
+                navigation['answer'],
+                navigation_contract,
+                tuple(navigation.get('actions', ())),
+            )
+        return ChatResponse(**navigation)
     index: BM25Index = app.state.bm25_index
     chunks: list[dict] = app.state.chunks
-
-    conversations: ConversationStore = app.state.conversations
-    state: ConversationState | None = None
-    if request.session_id:
-        state = conversations.get(request.session_id)
 
     reranker: Reranker | None = app.state.reranker
     fallback_used = False
@@ -220,7 +340,6 @@ async def chat(request: ChatRequest, http_request: Request):
     clause_intents: list[QueryIntent] = []
     normalization_applied = False
     history = state.build_history_messages() if state is not None else None
-    questions = split_compound_question(question)
     # A compound request is a short conversation inside one HTTP request. Use
     # an ephemeral state when no session was supplied so clauses such as
     # “Does he play guitar and when did he start?” can resolve naturally.
@@ -231,9 +350,45 @@ async def chat(request: ChatRequest, http_request: Request):
 
     try:
         for clause in questions:
+            clause_navigation_plan = build_query_plan(clause) if config.SEMANTIC_CONTRACT_ENABLED else None
+            clause_navigation_contract = _navigation_contract(
+                clause,
+                clause_navigation_plan,
+                state,
+            ) if clause_navigation_plan else None
+            navigation_clause = (
+                navigation_reply(
+                    clause,
+                    state,
+                    contract=clause_navigation_contract,
+                )
+                if len(questions) > 1
+                else None
+            )
+            if navigation_clause is not None:
+                clause_results.append(navigation_clause)
+                normalized_queries.append(clause)
+                planner_confidences.append(1.0)
+                clause_intent = clause_navigation_plan.intent if clause_navigation_plan else detect_intent(clause)
+                if clause_navigation_plan and clause_navigation_contract is not clause_navigation_plan.intent.contract:
+                    clause_intent = replace(clause_intent, contract=clause_navigation_contract)
+                clause_intents.append(clause_intent)
+                if state is not None and navigation_clause.get("status") == "answered":
+                    state.record_navigation(
+                        navigation_clause["answer"],
+                        clause_navigation_contract,
+                        tuple(navigation_clause.get("actions", ())),
+                    )
+                history = state.build_history_messages() if state is not None else None
+                continue
             base_query = state.augment_query(clause) if state is not None else clause
             if config.QUERY_PLANNER_ENABLED:
                 plan = build_query_plan(base_query)
+                if config.SEMANTIC_CONTRACT_ENABLED and plan.intent.contract is not None:
+                    clause_contract = _clause_contract(clause, base_query, plan, state)
+                    plan = replace(plan, intent=replace(plan.intent, contract=clause_contract))
+                elif not config.SEMANTIC_CONTRACT_ENABLED:
+                    plan = replace(plan, intent=replace(plan.intent, contract=None))
                 query = plan.retrieval_query
                 semantic_question = plan.normalized_question
                 normalized_queries.append(plan.normalized_question)
@@ -250,7 +405,7 @@ async def chat(request: ChatRequest, http_request: Request):
                 clause_intents.append(detect_intent(semantic_question))
             candidates = retrieve(query, index, chunks, k=config.TOP_K)
             if reranker is not None:
-                reranked = reranker.rerank(semantic_question, candidates)
+                reranked = await asyncio.to_thread(reranker.rerank, semantic_question, candidates)
             else:
                 reranked = candidates
                 fallback_used = True
@@ -261,10 +416,11 @@ async def chat(request: ChatRequest, http_request: Request):
                 history=history,
                 enforce_confidence_threshold=reranker is not None,
                 intent_question=semantic_question,
-                intent_override=plan.intent if config.QUERY_PLANNER_ENABLED else None,
+                intent_override=clause_intents[-1],
+                generation_timeout=max(0.0, deadline - time.monotonic()),
             )
             clause_results.append(clause_result)
-            if len(questions) > 1 and state is not None and clause_result.get("status") == "answered":
+            if len(questions) > 1 and state is not None and clause_result.get("status") == "answered" and clause_result.get("sources"):
                 clause_intent = clause_intents[-1]
                 clause_topic = clause_intent.topic or (reranked[0].get("metadata", {}).get("category", "unknown") if reranked else "unknown")
                 state.record(
@@ -273,11 +429,15 @@ async def chat(request: ChatRequest, http_request: Request):
                     clause_topic,
                     entities=clause_intent.entities,
                     normalized_question=semantic_question,
+                    contract=clause_intent.contract,
+                    evidence_ids=tuple(source["chunk_id"] for source in clause_result.get("sources", [])),
+                    destination_ids=tuple(clause_result.get("actions", ())),
                 )
                 history = state.build_history_messages()
     except SystemExit:
         raise
     except Exception:
+        logger.exception("JamChat request failed")
         unavailable = ChatResponse(
             status="unavailable",
             answer=config.UNAVAILABLE_MESSAGE,
@@ -296,6 +456,8 @@ async def chat(request: ChatRequest, http_request: Request):
         return JSONResponse(status_code=503, content=unavailable.model_dump())
 
     result = clause_results[0] if len(clause_results) == 1 else merge_compound_results(questions, clause_results)
+    if state is not None and state.history and requests_shorter_answer(question) and result.get("status") == "answered":
+        result["answer"] = shorten_list_answer(result["answer"])
     result["normalized_query"] = " | ".join(normalized_queries)
     result["planner_used"] = config.QUERY_PLANNER_ENABLED
     result["planner_confidence"] = min(planner_confidences, default=0.0)
@@ -329,7 +491,7 @@ async def chat(request: ChatRequest, http_request: Request):
         reason=result.get("reason", ""),
     )
 
-    if state is not None and status == "answered":
+    if state is not None and status == "answered" and sources and len(questions) == 1:
         topic = (last_intent.topic if last_intent else None) or (sources[0].category if sources else "unknown")
         entities = last_intent.entities if last_intent else ()
         state.record(
@@ -338,11 +500,23 @@ async def chat(request: ChatRequest, http_request: Request):
             topic,
             entities=entities,
             normalized_question=normalized_queries[-1] if normalized_queries else question,
+            contract=last_intent.contract if last_intent else None,
+            evidence_ids=tuple(s["chunk_id"] for s in result.get("sources", [])),
         )
+
+    actions: list[str] = []
+    for clause, intent, part in zip(questions, clause_intents, clause_results):
+        if part.get('status') == 'answered':
+            actions.extend(part.get('actions', []) or (answer_actions(clause, intent) if part.get('sources') else []))
+    actions = list(dict.fromkeys(actions))[:6]
+    if state is not None and result.get("reason") != "small_talk":
+        state.navigation_subjects = tuple(dict.fromkeys(catalog()[id]['subject'] for id in actions))
+        state.last_destination_ids = tuple(actions)
 
     return ChatResponse(
         status=status,
         answer=result["answer"],
+        actions=actions,
         confidence=confidence,
         sources=sources,
         fallback_used=fallback_used or result.get("fallback_used", False),
