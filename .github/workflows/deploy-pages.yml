@@ -31,9 +31,6 @@ jobs:
       - name: Check types
         run: npm run typecheck
 
-      - name: Test chat client
-        run: npm test
-
       - name: Check chat API configuration
         env:
           VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}

@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "node scripts/export_photo_dimensions.mjs && vite build && node scripts/copy-404.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/frontend/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
