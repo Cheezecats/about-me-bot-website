@@ -43,19 +43,29 @@ def _load_index() -> BM25Index:
 
 
 class _RateLimiter:
+    # This in-memory guard limits bursts before they reach the chatbot.
+    # Each visitor keeps a separate rolling count, so one visitor cannot exhaust everyone else's allowance.
     def __init__(self, limit: int = config.MAX_REQUESTS_PER_MINUTE) -> None:
+        # The limit comes from configuration, so it can change without rewriting the decision logic.
         self.limit = limit
+        # Store request times by client key so different visitors are treated independently.
         self._hits: dict[str, list[float]] = {}
 
     def allow(self, key: str) -> bool:
+        # Monotonic time keeps the one-minute window reliable when the computer clock changes.
         now = time.monotonic()
+        # The key normally represents one visitor, so each visitor has a separate request history.
+        # Remove expired timestamps so only the current sixty-second window affects the decision.
         recent = [timestamp for timestamp in self._hits.get(key, []) if now - timestamp < 60]
+        # Reject before appending when the client has already used its allowance.
         if len(recent) >= self.limit:
             self._hits[key] = recent
             return False
+        # Record an allowed request so the next request from the same visitor sees it.
         recent.append(now)
         self._hits[key] = recent
         if len(self._hits) > 2000:
+            # Remove inactive clients so this in-memory guard cannot grow forever.
             self._hits = {
                 client: [timestamp for timestamp in timestamps if now - timestamp < 60]
                 for client, timestamps in self._hits.items()
@@ -118,12 +128,17 @@ async def security_headers(http_request: Request, call_next):
 
 
 class ChatRequest(BaseModel):
+    # FastAPI stops malformed browser input here before retrieval or answer generation.
+    # The question must be present but is capped at 500 characters.
     question: str = Field(min_length=1, max_length=500)
+    # A first visit may have no session token.
+    # If one is supplied, the pattern keeps it predictable for selecting visitor context.
     session_id: str | None = Field(default=None, max_length=config.MAX_SESSION_ID_LEN, pattern=r"^[A-Za-z0-9._:-]+$")
 
     @field_validator("question")
     @classmethod
     def _non_empty(cls, value: str) -> str:
+        # This rejects whitespace-only questions and passes a trimmed question to the rest of the service.
         if not value.strip():
             raise ValueError("question must not be empty")
         return value.strip()

@@ -1,52 +1,142 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import Reveal from "../components/Reveal";
 import { videos, youtubeThumb, type VideoItem } from "../data/content";
+
+function PlayIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  );
+}
 
 export default function Videos() {
   const [active, setActive] = useState<VideoItem | null>(null);
 
   useEffect(() => {
     if (!active) return;
-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setActive(null); };
-    window.addEventListener("keydown", close);
-    const previousOverflow = document.body.style.overflow;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActive(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { window.removeEventListener("keydown", close); document.body.style.overflow = previousOverflow; };
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [active]);
 
-  const featured = videos[0];
   return (
-    <div className="pb-28 pt-20 sm:pt-24">
-      <section className="relative overflow-hidden bg-[var(--color-sky)] px-5 pb-14 pt-16 text-white sm:px-8 sm:pb-20 sm:pt-20">
-        <div className="pointer-events-none absolute inset-0 opacity-75" style={{ background: "radial-gradient(circle at 88% 8%, rgba(255,255,255,0.5), transparent 25%), linear-gradient(125deg, transparent 38%, rgba(34,207,203,0.55) 100%)" }} />
-        <div className="relative mx-auto max-w-[1180px]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/70">Moving pictures · 2024—2025</p>
-          <div className="mt-5 grid gap-9 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <div><h1 className="text-[clamp(3.8rem,9vw,8.8rem)] font-semibold leading-[0.78] tracking-[-0.08em]">A little<br />closer.</h1><p className="mt-7 max-w-md text-[16px] leading-relaxed text-white/80">Small films from the places I have been, built around the feeling that stays after a scene ends.</p></div>
-            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }} className="border-[8px] border-white/80 bg-white p-2 shadow-[0_22px_60px_rgba(7,56,129,0.3)]">
-              <button type="button" onClick={() => setActive(featured)} className="group relative block w-full overflow-hidden text-left" aria-label={`Watch ${featured.title}`}>
-                <img src={youtubeThumb(featured.youtubeId)} alt={`${featured.title} film thumbnail`} fetchPriority="high" className="aspect-video w-full object-cover transition duration-700 group-hover:scale-[1.025]" />
-                <span className="absolute bottom-4 left-4 flex items-center gap-2 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#163852] shadow-sm transition group-hover:bg-[var(--color-turquoise)]">Watch film <Play /></span>
-              </button>
+    <div className="mx-auto max-w-[1040px] px-6 pb-28 pt-28 sm:px-8 sm:pt-36">
+      <Reveal>
+        <span className="eyebrow">Videos</span>
+        <h1 className="mt-4 text-[clamp(2.2rem,6vw,4rem)] font-bold leading-[1.02] tracking-[-0.03em]">
+          Film & motion.
+        </h1>
+        <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-[var(--color-muted)]">
+          Travel films and vlogs captured in 8K and 4K on the Nikon Z8. Click a
+          card to play.
+        </p>
+      </Reveal>
+
+      <div className="mt-14 flex flex-col gap-12">
+        {videos.map((v, i) => (
+          <Reveal key={v.id} delay={i * 0.06}>
+            <div className="grid gap-6 md:grid-cols-[1.4fr_1fr] md:items-center">
+              <motion.button
+                onClick={() => setActive(v)}
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                className="group relative aspect-video w-full overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--color-edge)] bg-black"
+              >
+                <img
+                  src={youtubeThumb(v.youtubeId)}
+                  alt={v.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover opacity-90 transition-all duration-700 group-hover:scale-[1.04] group-hover:opacity-100"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors duration-500 group-hover:bg-black/30">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_10px_40px_rgba(0,0,0,0.4)] transition-transform duration-500 group-hover:scale-110">
+                    <PlayIcon />
+                  </span>
+                </div>
+                <span className="absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-md">
+                  {v.quality} · {v.year}
+                </span>
+              </motion.button>
+
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  {v.title}
+                </h2>
+                <span className="mt-2 inline-block text-[13px] font-medium text-[var(--color-muted)]">
+                  {v.quality} · {v.year}
+                </span>
+                <p className="mt-4 text-[15.5px] leading-relaxed text-[var(--color-muted)]">
+                  {v.description}
+                </p>
+                <button
+                  onClick={() => setActive(v)}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full border border-[var(--color-edge)] px-5 py-2.5 text-[13.5px] font-medium transition-all duration-300 hover:border-[var(--color-fg)]"
+                >
+                  Watch film
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => setActive(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={active.title}
+          >
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" />
+            <motion.div
+              className="relative z-[5] w-full max-w-4xl"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="aspect-video w-full overflow-hidden rounded-[var(--radius-2xl)] bg-black shadow-[0_0_80px_rgba(0,0,0,0.6)]">
+                <iframe
+                  className="h-full w-full"
+                  src={`https://www.youtube.com/embed/${active.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+                  title={active.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">{active.title}</h3>
+                <button
+                  onClick={() => setActive(null)}
+                  className="rounded-full border border-white/20 px-4 py-2 text-[13px] font-medium text-white/80 transition hover:border-white/50 hover:text-white"
+                >
+                  Close
+                </button>
+              </div>
             </motion.div>
-          </div>
-          <div className="mt-8 grid gap-4 border-t border-white/35 pt-5 sm:grid-cols-[1fr_auto] sm:items-start"><div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/65">Featured · {featured.quality} · {featured.year}</p><h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em]">{featured.title}</h2></div><p className="max-w-xl text-[14px] leading-relaxed text-white/82 sm:text-right">{featured.description}</p></div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 sm:py-32" aria-label="Film collection">
-        <div className="flex flex-col gap-4 border-b border-[var(--color-edge)] pb-8 sm:flex-row sm:items-end sm:justify-between"><div><span className="cinema-kicker">The collection</span><h2 className="mt-4 text-[clamp(2.8rem,6vw,5.8rem)] font-semibold leading-[0.9] tracking-[-0.065em]">Three films.</h2></div><p className="max-w-sm text-[15px] leading-relaxed text-[var(--color-muted)] sm:text-right">Open any film directly, then return to the full collection whenever you are ready.</p></div>
-        <div className="mt-9 grid gap-5 md:grid-cols-3">{videos.map((video, index) => <FilmCard key={video.id} video={video} index={index} onWatch={() => setActive(video)} />)}</div>
-      </section>
-
-      <AnimatePresence>{active && <motion.div className="fixed inset-0 z-50 grid place-items-center bg-[#071d31]/88 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-label={`Playing ${active.title}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setActive(null); }}><motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={{ duration: 0.28 }} className="w-full max-w-5xl overflow-hidden rounded-2xl bg-[#102c46] shadow-2xl"><div className="aspect-video bg-black"><iframe className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${active.youtubeId}?autoplay=1`} title={active.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div><div className="flex items-center justify-between gap-4 px-5 py-4 text-white"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-turquoise)]">{active.quality} · {active.year}</p><h3 className="mt-1 text-xl font-semibold">{active.title}</h3></div><button type="button" onClick={() => setActive(null)} className="rounded-lg border border-white/25 px-4 py-2 text-[13px] font-semibold text-white transition hover:border-[var(--color-turquoise)] hover:text-[var(--color-turquoise)]">Close</button></div></motion.div></motion.div>}</AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
-function FilmCard({ video, index, onWatch }: { video: VideoItem; index: number; onWatch: () => void }) {
-  return <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-10%" }} transition={{ duration: 0.6, delay: index * 0.08 }} className="overflow-hidden rounded-[1.4rem] border border-[var(--color-edge)] bg-[var(--color-surface)] p-3 shadow-[0_12px_32px_rgba(8,73,135,0.1)]"><button type="button" onClick={onWatch} className="group relative block w-full overflow-hidden rounded-xl text-left" aria-label={`Watch ${video.title}`}><img src={youtubeThumb(video.youtubeId)} alt={`${video.title} thumbnail`} loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-700 group-hover:scale-[1.045]" /><span className="absolute bottom-3 left-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-turquoise)] text-[#163852] shadow-sm"><Play /></span></button><div className="px-2 pb-2 pt-5"><p className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[var(--color-sky)]">{String(index + 1).padStart(2, "0")} · {video.quality} · {video.year}</p><h3 className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{video.title}</h3><p className="mt-3 min-h-[5rem] text-[14px] leading-relaxed text-[var(--color-muted)]">{video.description}</p><button type="button" onClick={onWatch} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-[var(--color-edge)] px-4 py-2.5 text-[12px] font-semibold text-[var(--color-fg)] transition hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Watch now <Arrow /></button></div></motion.article>;
-}
-
-function Play() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>; }
-function Arrow() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>; }

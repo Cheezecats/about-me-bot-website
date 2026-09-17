@@ -5,6 +5,8 @@ import re
 from backend.generation.intent import detect_intent
 
 _COMPOUND_SPLIT_PATTERN = re.compile(
+    # Treat conjunctions, question marks and semicolons as possible boundaries.
+    # Split only when the next words begin another question, so "music and hobbies" stays together.
     r"(?:\s+(?:and|also|as well as)\s+|[?;]\s+|\n+)(?="
     r"(?:what|where|who|when|why|how|does|is|are|has|have|did|can|could|which|tell|favorite|favourite|his|her|their|my|your)\b)",
     flags=re.IGNORECASE,
@@ -14,7 +16,9 @@ _COMPOUND_SPLIT_PATTERN = re.compile(
 def split_compound_question(question: str) -> list[str]:
     """Split conjunctions only when they introduce a new question clause."""
 
+    # Keep the original question if no safe boundary is found, so valid input never becomes an empty list.
     parts = [part.strip(" ,;?") for part in _COMPOUND_SPLIT_PATTERN.split(question.strip())]
+    # Remove separator punctuation before sending each clause through the normal question planner.
     return [part for part in parts if part] or [question.strip()]
 
 
@@ -48,6 +52,8 @@ def merge_compound_results(questions: list[str], results: list[dict]) -> dict:
     fallback_used = False
     total_ms = 0.0
 
+    # Present each answer in order and show each supporting source only once.
+    # Keep successful clauses visible even if another clause is refused or unavailable.
     for index, (question, result) in enumerate(zip(questions, results), start=1):
         result_status = result.get("status", "answered")
         display_answer = result.get("answer", "")

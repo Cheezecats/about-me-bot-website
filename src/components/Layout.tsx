@@ -15,7 +15,6 @@ export default function Layout() {
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            data-page-path={location.pathname}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
