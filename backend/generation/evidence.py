@@ -281,21 +281,33 @@ def _curated_photo_chunk() -> dict:
 def eligible_evidence(contract: SemanticContract, intent: Any, chunks: list[dict]) -> list[dict]:
     """Filter retrieved candidates by capability before a formatter sees them."""
 
+    # Retrieval finds possible matches, but the reviewed contract decides which categories and titles may support the answer.
+    # A high retrieval score cannot make an unrelated passage eligible by itself.
+    # A capability is the reviewed rule for the kind of information this question may use.
     capability = _capability(contract, intent)
     if capability is None:
+        # Without a reviewed capability, a related passage is still not allowed to answer the question.
         return []
     if capability.key == "curated_photo_selection":
+        # Photo-pick questions use the reviewed count of curated picks instead of inventing one personal favourite.
         chunk = _curated_photo_chunk()
         chunk["score"] = 1.0
         return [chunk]
+    # First identify passages about named people, places or subjects before applying title and category rules.
     focused = focused_chunks(tuple(getattr(intent, "entities", ())), chunks)
     if capability.key == "focused":
+        # Named-entity questions stay with that entity instead of using a broad topic summary.
         titles = set().union(*(CONTRACT_FOCUSED_TITLES.get(entity, frozenset()) for entity in getattr(intent, "entities", ())))
         if titles:
+            # A known title is safer than returning every passage in its topic.
             return [chunk for chunk in chunks if chunk.get("metadata", {}).get("title") in titles]
+        # If no title table exists, retain only chunks focused on the entity.
         return focused or []
     if focused and capability.titles.intersection({c.get("metadata", {}).get("title", "") for c in focused}):
+        # Prefer entity-focused passages when they contain an approved title.
         chunks = focused
+    # Apply title and category rules when they are present.
+    # An empty rule does not restrict that dimension.
     filtered = [
         chunk for chunk in chunks
         if (not capability.titles or chunk.get("metadata", {}).get("title") in capability.titles)
@@ -304,10 +316,8 @@ def eligible_evidence(contract: SemanticContract, intent: Any, chunks: list[dict
     if not filtered and capability.categories and all(
         not chunk.get("metadata", {}).get("title") for chunk in chunks
     ):
-        # Low-level callers may provide a deliberately small fixture with a
-        # category but no generated heading. A known category is still a
-        # positive eligibility signal; public corpus chunks retain the title
-        # check above.
+        # Low-level fixtures may provide a category without a generated title.
+        # A known category remains a positive eligibility signal for those fixtures.
         filtered = [
             chunk for chunk in chunks
             if chunk.get("metadata", {}).get("category") in capability.categories

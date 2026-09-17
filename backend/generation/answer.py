@@ -69,21 +69,29 @@ class GeneratedDraft:
         return [by_id[evidence_id] for evidence_id in self.evidence_ids if evidence_id in by_id]
 
     def validate(self, contract: SemanticContract | None, context_chunks: list[dict]) -> bool:
+        # The model cannot approve its own evidence.
+        # Every cited ID and relation must match the reviewed request and current context.
         if contract is None or not self.answer.strip():
+            # A blank answer or missing contract cannot be checked safely.
             return False
+        # Build the set from the current retrieval result, not from model output.
         available_ids = {str(chunk.get("chunk_id", "")) for chunk in context_chunks}
+        # Reject missing or repeated citations before checking the answer text.
         if (
             not self.evidence_ids
             or len(set(self.evidence_ids)) != len(self.evidence_ids)
             or not set(self.evidence_ids).issubset(available_ids)
         ):
             return False
-        # The declared relation is metadata for diagnostics, never proof of
-        # correctness. Content-level grounding and contract relevance below
-        # remain mandatory.
+        # Only IDs from the current context can become public source labels.
+        # The relation field describes the draft, but it is not proof of correctness.
+        # The answer must still be grounded in the cited text and contract.
         if self.answered_relation != contract.relation:
+            # A citation is not enough if the draft answers a different question from the one the visitor asked.
             return False
+        # Resolve approved IDs into actual passages before checking their content.
         cited_chunks = self.cited_chunks(context_chunks)
+        # Separate checks prevent a correct citation from hiding a wrong answer.
         return check_grounding(self.answer, cited_chunks) and check_contract_relevance(
             self.answer, contract, cited_chunks
         )
@@ -436,43 +444,45 @@ def answer_or_refuse(
 ) -> dict:
     started = time.perf_counter()
     semantic_question = intent_question.strip() if intent_question else question
+    # Keep the visitor's wording separate so the answer addresses the actual question, not only the search phrase.
     if intent_question is None:
-        # Keep direct callers (CLI/tests) compatible with the API path by
-        # applying the same deterministic normalization when no plan was
-        # supplied by the request orchestrator.
+        # Direct callers use the same normalisation as the API when no plan is supplied.
         semantic_question = build_query_plan(question).normalized_question
-    # Use the planner's merged intent rather than re-detecting only the
-    # canonical wording. Canonicalization may intentionally remove concrete
-    # entities (for example “Qiu” or “Apex Legends not”), while the formatter
-    # still needs those entities to answer the user's actual contract.
+    # Use the planner's merged intent rather than only the canonical wording.
+    # Canonicalisation can remove entities that the final answer still needs.
     planned_intent = build_query_plan(question).intent
     if not config.SEMANTIC_CONTRACT_ENABLED:
         planned_intent = replace(planned_intent, contract=None)
     if intent_override is not None:
         intent = intent_override
     elif intent_question and semantic_question != question:
-        # Direct callers may provide a state-resolved semantic question but
-        # not the already merged planner intent. Merge both sides so the
-        # resolved subject (for example electric guitar) and the raw operator
-        # are retained.
+        # A state-resolved caller may supply a subject without the merged planner intent.
+        # Merge both so inherited subjects and the original operator remain available.
         resolved_intent = build_query_plan(semantic_question).intent
         intent = _merge_contract_intent(resolved_intent, planned_intent)
     else:
         intent = planned_intent
 
+    # Handle deterministic outcomes first so safe replies do not need model generation.
+    # Early returns also make refusal and error behaviour easier to test.
+    # Private or sensitive questions are refused before retrieval or generation.
     if intent.kind == "privacy" or is_sensitive_request(question):
         return _result("refused", config.REFUSAL_MESSAGE, reason="privacy")
 
+    # Greetings and other small-talk replies do not need a knowledge search.
     if intent.kind == "small_talk" or is_small_talk(question):
         from backend.generation.policies import small_talk_answer
         return _result("answered", small_talk_answer(question), confidence=1.0, reason="small_talk")
 
+    # Questions about the website itself can use a fixed, immediate response.
     if intent.kind == "product_meta" or is_product_meta_request(question):
         return _result("answered", product_meta_answer(question), confidence=1.0, reason="product_meta")
 
+    # An unresolved follow-up receives clarification instead of an invented topic.
     if intent.kind == "unknown" and intent.followup:
         return _result("clarification", config.CLARIFICATION_MESSAGE, reason="ambiguous_followup")
 
+    # Stop unsupported or ambiguous details before a model can answer with a related but wrong passage.
     if intent.kind in {"privacy", "ambiguous", "unsupported"} or is_ambiguous_request(question) or is_non_profile_request(question) or unavailable_profile_detail(semantic_question, intent) or unavailable_profile_detail(question, intent):
         reason = {
             "privacy": "privacy",
@@ -481,25 +491,26 @@ def answer_or_refuse(
         }.get(intent.kind, "unsupported")
         return _result("refused", config.REFUSAL_MESSAGE, reason=reason)
 
-    # Retrieval is allowed to be broad, but only evidence authorized for the
-    # contract may reach a formatter or the model. Unsupported relationships
-    # stop here so a related summary cannot become a substitute answer.
+    # Retrieval may be broad, but only evidence approved for the contract may reach a formatter or model.
+    # An unsupported relationship must stop here instead of becoming a substitute answer.
     capability = None
     if config.SEMANTIC_CONTRACT_ENABLED and intent.contract is not None:
         capability = capability_for(intent.contract, intent)
         if capability is None:
             return _result("refused", config.REFUSAL_MESSAGE, reason="unsupported")
+        # A related topic is not enough; the selected passage must satisfy the requested fact.
         eligible = eligible_evidence(intent.contract, intent, reranked_chunks)
         if not eligible and reranked_chunks and all(not chunk.get("metadata") for chunk in reranked_chunks):
-            # Preserve the low-level answer_or_refuse contract for callers
-            # that supply an already selected fixture without metadata. The
-            # public API always passes metadata-bearing corpus chunks.
+            # Low-level callers may provide preselected fixtures without metadata.
+            # The public API always passes metadata-bearing corpus chunks.
             eligible = reranked_chunks
         if not eligible:
+            # A missing approved passage is a reason to refuse, not to guess.
             return _result("refused", config.REFUSAL_MESSAGE, reason="missing_evidence")
         reranked_chunks = eligible
 
     if not reranked_chunks or is_sensitive_request(question):
+        # Without approved evidence, refusal is safer than guessing.
         return _result(
             "refused",
             config.REFUSAL_MESSAGE,
@@ -520,6 +531,8 @@ def answer_or_refuse(
             reason="low_retrieval_confidence",
         )
 
+    # Use a deterministic formatter when approved evidence already contains the requested fact.
+    # Model generation is the final fallback.
     structured = format_structured_answer(semantic_question, top_chunks, intent)
     if structured == config.REFUSAL_MESSAGE:
         return _result("refused", config.REFUSAL_MESSAGE, reason="unsupported_detail")
@@ -546,8 +559,8 @@ def answer_or_refuse(
             reason="structured_evidence",
         )
 
-    # Keep the resolved request immutable through generation.  This prevents a
-    # second planner pass from dropping inherited subjects or constraints.
+    # Keep the resolved request unchanged so inherited subjects and constraints are not lost.
+    # Only remaining explanatory cases reach the model after deterministic checks fail.
     model_contract = (
         intent.contract or build_query_plan(semantic_question).intent.contract
         if config.SEMANTIC_CONTRACT_ENABLED

@@ -11,6 +11,7 @@ OVERLAP_SENTENCES = 1
 
 
 def _split_sentences(text: str) -> list[str]:
+    # Normalise whitespace before sentence detection so source formatting does not change the passages.
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
         return []
@@ -19,24 +20,32 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _chunk_text(text: str, max_words: int = config.MAX_CHUNK_WORDS) -> list[str]:
+    # Build passages from complete sentences so retrieved evidence stays readable.
+    # Split and trim the source so formatting around sentence boundaries does not change the passages.
     sentences = _split_sentences(text)
     if not sentences:
+        # Empty source sections should not create empty searchable records.
         return []
+    # Build one passage at a time so every passage stays within the configured word limit.
     chunks: list[str] = []
     current: list[str] = []
     current_words = 0
     for sent in sentences:
         sent_words = len(sent.split())
+        # Add a complete sentence while there is room; otherwise start a new passage.
         if sent_words > max_words:
+            # Split an unusually long sentence only when preserving its boundary is impossible.
             if current:
                 chunks.append(" ".join(current))
                 current = []
                 current_words = 0
             words = sent.split()
+            # Split this sentence into bounded pieces so the word limit still holds.
             for i in range(0, len(words), max_words):
                 chunks.append(" ".join(words[i : i + max_words]))
             continue
         if current and current_words + sent_words > max_words:
+            # Finish the current passage before adding a sentence that would exceed the limit.
             chunks.append(" ".join(current))
             current = [sent]
             current_words = sent_words
@@ -44,17 +53,22 @@ def _chunk_text(text: str, max_words: int = config.MAX_CHUNK_WORDS) -> list[str]
             current.append(sent)
             current_words += sent_words
     if current:
+        # Do not lose the final, partly filled passage after the loop ends.
         chunks.append(" ".join(current))
     return chunks
 
 
 def _add_overlap(chunks: list[str]) -> list[str]:
+    # Repeat the final sentence at each boundary so facts remain searchable.
     if len(chunks) <= 1 or OVERLAP_SENTENCES <= 0:
+        # There is nothing useful to repeat for one passage or disabled overlap.
         return chunks
+    # Keep the first passage unchanged, then add permitted overlap to later passages.
     result = [chunks[0]]
     for i in range(1, len(chunks)):
         prev_sents = _split_sentences(chunks[i - 1])
         overlap = prev_sents[-OVERLAP_SENTENCES:] if prev_sents else []
+        # Drop the repeated sentence if it would make the new passage too long.
         if sum(len(sentence.split()) for sentence in overlap) + len(chunks[i].split()) > config.MAX_CHUNK_WORDS:
             overlap = []
         if overlap:
@@ -238,6 +252,8 @@ def _from_kb_extra(extra_dir: Path) -> list[dict]:
 
 
 def build_chunks(content_path: Path, extra_dir: Path) -> list[dict]:
+    # Convert only reviewed public fields into the record shape used by retrieval.
+    # Private or hidden material never enters this list.
     chunks: list[dict] = []
     if content_path.exists():
         content = json.loads(content_path.read_text(encoding="utf-8"))
@@ -256,6 +272,7 @@ def build_chunks(content_path: Path, extra_dir: Path) -> list[dict]:
         if "photos" in content or "heroCaption" in content:
             chunks += _from_photos(content.get("photos", []), content.get("heroCaption"))
     chunks += _from_kb_extra(extra_dir)
+    # Stable IDs keep source references predictable across repeated builds.
     chunks.sort(key=lambda c: c["chunk_id"])
     return chunks
 

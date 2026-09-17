@@ -30,6 +30,7 @@ class BM25Index:
 
     @classmethod
     def build(cls, chunks: list[dict]) -> "BM25Index":
+        # Store term frequencies by chunk so searches score only passages containing a query term.
         inverted: dict[str, dict[str, int]] = {}
         doc_len: dict[str, int] = {}
         total_len = 0
@@ -55,16 +56,23 @@ class BM25Index:
         return math.log(1 + (self.n_docs - n_t + 0.5) / (n_t + 0.5))
 
     def score(self, query: str, chunk_id: str) -> float:
+        # BM25 rewards repeated rare terms and normalises passage length, making its ranking easier to inspect.
+        # Missing query terms contribute zero instead of causing a failed search.
         s = 0.0
+        # Normalise passage length so long passages do not win only because they contain more words.
         dl = self.doc_len.get(chunk_id, 0)
         denom_norm = self.k1 * (1 - self.b + self.b * (dl / self.avgdl if self.avgdl else 0))
+        # Add one contribution for each query term that appears in this passage.
         for term in tokenize_query(query):
             postings = self.inverted_index.get(term)
             if not postings:
+                # Unknown words are harmless and contribute no score.
                 continue
             f = postings.get(chunk_id)
             if not f:
+                # This candidate was found for another term, not this one.
                 continue
+            # IDF weights rare terms more heavily, while f counts this term in the current passage.
             idf = self._idf(term)
             s += idf * (f * (self.k1 + 1)) / (f + denom_norm)
         return s
@@ -72,14 +80,18 @@ class BM25Index:
     def search(self, query: str, k: int = config.TOP_K) -> list[tuple[str, float]]:
         q_terms = tokenize_query(query)
         if not q_terms:
+            # Nothing can be ranked when tokenisation produces no terms.
             return []
+        # Use the inverted index to avoid scoring every stored passage.
         candidates: set[str] = set()
         for term in q_terms:
             postings = self.inverted_index.get(term)
             if postings:
                 candidates.update(postings.keys())
         scored = [(cid, self.score(query, cid)) for cid in candidates]
+        # Sort highest scores first, then use the chunk ID to make ties deterministic.
         scored.sort(key=lambda x: (-x[1], x[0]))
+        # Equal scores therefore produce the same order on repeated searches.
         return scored[:k]
 
     def to_dict(self) -> dict:

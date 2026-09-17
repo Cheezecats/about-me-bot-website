@@ -406,20 +406,26 @@ def _canonical_question(question: str) -> str:
 
 
 def build_query_plan(question: str) -> QueryPlan:
+    # Keep the visitor's original wording for meaning while cleaned or canonical wording helps retrieval.
     original = question.strip()
     cleaned = _clean(original)
     canonical = _canonical_question(original)
-    # Retrieval may use a broad alias; the answer must still see the requested
-    # relation, quantity, negation, time, or detail. Keep canonical topic chips
-    # for simple questions, but never turn a price/why question into a list.
+    # The original preserves meaning, while cleaned wording removes noise.
+    # Canonical wording gives retrieval a stable phrase for known aliases or typos.
+    # Retrieval may use a broad alias, but the answer must preserve the requested relation, quantity, negation, time, or detail.
+    # Simple questions can use canonical topic wording, but price and why questions must keep their detail.
+    # Keep detailed wording when an operator or named detail would be lost by a broad topic label.
     preserve_detail = bool(re.search(
         r"\b(?:why|how many|how much|how long|when|who went|before|after|not|never|still|stop|stopped|"
         r"except|other than|excluding|cost|price|settings?|brand|called|named|learn|learned|speak|grades|"
         r"histology|hallucination|canon|minecraft|piano|python|typescript|solidity|java)\b", cleaned, re.IGNORECASE
     ))
     preserve_detail = preserve_detail or bool(focused_subjects(cleaned)) or bool(re.search(r"\b(?:hate|dislike|doesn't|isn't)\b", cleaned, re.IGNORECASE))
+    # Use cleaned wording for detailed questions.
+    # Use canonical wording for simpler questions so retrieval has a short, stable phrase.
     normalized = cleaned if preserve_detail else canonical
     intent = detect_intent(normalized)
+    # Merge detections from every wording so canonicalisation cannot erase a detail from the original question.
     intent = _merge_contract_intent(intent, detect_intent(cleaned))
     intent = _merge_contract_intent(intent, detect_intent(original))
 

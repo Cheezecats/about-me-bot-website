@@ -143,25 +143,34 @@ class ConversationState:
         evidence_ids: tuple[str, ...] = (),
         destination_ids: tuple[str, ...] = (),
     ) -> None:
+        # Keep only a short rolling history so follow-ups work without retaining every visitor's conversation.
+        # Store only the short transcript needed to interpret a related follow-up.
         self.history.append((question, answer, topic))
         if len(self.history) > self.max_turns:
+            # Keep the newest turns because they are most useful for the next follow-up question.
             self.history = self.history[-self.max_turns :]
+        # Keep structured context beside the transcript so follow-ups do not require rereading the whole answer.
         self.last_topic = topic
         self.last_entities = tuple(entities)
         if topic == "sports" and not any(entity.startswith("sport_") for entity in entities):
+            # Recover one sports entity from the answer when the planner did not attach it to the question.
             mentioned = tuple(entity for entity, terms in _ENTITY_CONTEXT_TERMS.items()
                               if entity.startswith("sport_") and re.search(rf"\b{re.escape(terms[0])}\b", answer, re.IGNORECASE))
             if len(mentioned) == 1:
                 self.last_entities = mentioned
+        # These fields let the next question refer to "it" or "that" without searching the whole previous answer.
         self.last_subject = self._subject_for(topic, self.last_entities)
+        # Save the requested detail because a follow-up may ask for a different fact about the same subject.
         self.last_requested_detail = self._detail_for(normalized_question or question, topic, entities)
         self.last_question = normalized_question or question
         self.last_answer = answer
+        # Keep the approved relationship and evidence IDs so a follow-up can reuse the same safe context.
         self.last_contract = contract
         self.last_relation = contract.relation if contract else self._detail_for(self.last_question, topic, entities)
         self.last_object_type = contract.object_type if contract else self.last_subject
         self.last_evidence_ids = tuple(evidence_ids)
         self.last_displayed_items = self._displayed_items(answer)
+        # These IDs let the next turn reuse approved destinations and evidence without a full search.
         self.last_destination_ids = tuple(destination_ids)
 
     @staticmethod

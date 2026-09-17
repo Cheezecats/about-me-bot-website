@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import type p5 from "p5";
-import { useReducedMotion } from "motion/react";
+import p5 from "p5";
 import { useTheme } from "./ThemeProvider";
 
 type Palette = { bg: string; fg: string };
@@ -26,17 +25,14 @@ export default function GenerativeCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<p5 | null>(null);
   const { theme } = useTheme();
-  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
 
-    const prefersReduced = reducedMotion ?? false;
-    let disposed = false;
-    let visible = false;
-    let starting = false;
-    let instance: p5 | null = null;
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     const palette = PALETTES[theme];
 
     const sketch = (p: p5) => {
@@ -48,15 +44,12 @@ export default function GenerativeCanvas({
       const noiseScale = 0.0022;
 
       p.setup = () => {
-        p.pixelDensity(Math.min(window.devicePixelRatio || 1, 2));
-        p.frameRate(30);
         p.createCanvas(w, h);
         p.randomSeed(seed);
         p.noiseSeed(seed);
         p.background(palette.bg);
         p.strokeCap(p.ROUND);
         resetParticles();
-        if (prefersReduced || !visible || document.hidden) p.noLoop();
       };
 
       const resetParticles = () => {
@@ -118,45 +111,30 @@ export default function GenerativeCanvas({
       }
     };
 
-    const syncPlayback = () => {
-      if (!instance) return;
-      if (visible && !document.hidden && !prefersReduced) instance.loop();
-      else instance.noLoop();
-    };
-    // Load the existing artwork only when its section approaches the viewport.
-    // The home page and JamChat no longer wait on the p5 bundle.
-    const start = async () => {
-      if (starting || disposed) return;
-      starting = true;
-      try {
-        const { default: P5 } = await import("p5");
-        if (disposed) return;
-        instance = new P5(sketch, node);
-        instanceRef.current = instance;
-        syncPlayback();
-      } catch {
-        // Decorative artwork is optional; preserve the section's content.
-        starting = false;
-      }
-    };
-    const io = new IntersectionObserver(entries => {
-      visible = entries.some(entry => entry.isIntersecting);
-      if (visible) void start();
-      syncPlayback();
-    }, { rootMargin: "160px", threshold: 0 });
+    const instance = new p5(sketch, node);
+    instanceRef.current = instance;
+
+    // Pause when offscreen to save CPU/battery
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (prefersReduced) return;
+          if (e.isIntersecting) instance.loop();
+          else instance.noLoop();
+        }
+      },
+      { threshold: 0.05 }
+    );
     io.observe(node);
-    document.addEventListener("visibilitychange", syncPlayback);
 
     return () => {
-      disposed = true;
       io.disconnect();
-      document.removeEventListener("visibilitychange", syncPlayback);
-      instance?.remove();
+      instance.remove();
       instanceRef.current = null;
       // p5 leaves a canvas node; clear it defensively
       node.textContent = "";
     };
-  }, [theme, seed, particleCount, height, reducedMotion]);
+  }, [theme, seed, particleCount, height]);
 
   return (
     <div
