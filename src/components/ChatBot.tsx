@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect, useId, type CSSProperties, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpRight, Camera, Check, ChevronDown, Gamepad2, Info, MessageCircle, Plus, RotateCcw, Sparkles, TriangleAlert, X, Grip } from "lucide-react";
+import { favoriteSongPreview, resolveChatActions, type ChatDestination } from "./chatDestinations";
 import "./chat.css";
 
 type ChatStatus = "idle" | "loading" | "answered" | "refused" | "clarification" | "unavailable" | "error";
@@ -25,6 +27,7 @@ interface ChatResponse {
   suggested_questions?: string[];
   normalized_query?: string;
   normalization_applied?: boolean;
+  actions?: unknown;
 }
 
 interface Message {
@@ -36,6 +39,7 @@ interface Message {
   normalizedQuery?: string;
   normalizationApplied?: boolean;
   retryQuestion?: string;
+  actions?: ChatDestination[];
 }
 
 interface PanelSize {
@@ -152,6 +156,33 @@ function Disclosure({ label, children }: { label: string; children: ReactNode })
   </div>;
 }
 
+function DestinationLink({ destination, onInternalClick }: { destination: ChatDestination; onInternalClick: () => void }) {
+  const label = <>{destination.label}<ArrowUpRight size={14} aria-hidden="true" /></>;
+  return destination.kind === "internal"
+    ? <Link className="jam-destination-link" to={destination.href} onClick={onInternalClick}>{label}</Link>
+    : <a className="jam-destination-link" href={destination.href} target="_blank" rel="noopener noreferrer" aria-label={`${destination.label} (opens in a new tab)`}>{label}</a>;
+}
+
+function DestinationCards({ actions, onInternalClick }: { actions: ChatDestination[]; onInternalClick: () => void }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const songActions = actions.filter(action => action.subject === "song");
+  const otherActions = actions.filter(action => action.subject !== "song");
+  const preview = songActions.length ? favoriteSongPreview() : undefined;
+  if (!actions.length) return null;
+  return <div className="jam-destinations" aria-label="Explore related links">
+    {songActions.length > 0 && <div className="jam-song-card">
+      {preview && !imageFailed && <img src={preview.image} alt={preview.alt} loading="lazy" onError={() => setImageFailed(true)} />}
+      <div className="jam-song-info">
+        <span className="jam-destination-eyebrow">James’s favorite song</span>
+        <strong>{preview?.title ?? "Favorite song"}</strong>
+        {preview?.subtitle && <span>{preview.subtitle}</span>}
+        <div className="jam-song-links">{songActions.map(action => <DestinationLink key={action.id} destination={action} onInternalClick={onInternalClick} />)}</div>
+      </div>
+    </div>}
+    {otherActions.length > 0 && <div className="jam-destination-list">{otherActions.map(action => <DestinationLink key={action.id} destination={action} onInternalClick={onInternalClick} />)}</div>}
+  </div>;
+}
+
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -244,6 +275,11 @@ export default function ChatBot() {
     resizeCleanup.current?.();
     setOpen(false);
     requestAnimationFrame(() => launcherRef.current?.focus({ preventScroll: true }));
+  }, []);
+
+  const followDestination = useCallback(() => {
+    resizeCleanup.current?.();
+    setOpen(false);
   }, []);
 
   useEffect(() => {
@@ -340,6 +376,7 @@ export default function ChatBot() {
         role: "assistant", content: data.answer, status: nextStatus,
         sources: data.sources ?? [], suggestedQuestions: data.suggested_questions ?? [],
         normalizedQuery: data.normalized_query, normalizationApplied: data.normalization_applied,
+        actions: nextStatus === "answered" ? resolveChatActions(data.actions) : [],
         retryQuestion: nextStatus === "unavailable" || nextStatus === "error" ? question : undefined,
       }]);
       setStatus(nextStatus);
@@ -411,6 +448,7 @@ export default function ChatBot() {
                       initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration }} aria-label={message.role === "user" ? "You" : "JamChat"}>
                       {message.role === "assistant" && <div className="jam-message-label">{message.status === "error" || message.status === "unavailable" ? <TriangleAlert size={14} className="jam-error-icon" /> : <span className="jam-mini-mark"><MessageCircle size={12} /></span>} JamChat</div>}
                       <div className="jam-message-text">{message.role === "assistant" ? renderAssistantContent(message.content) : message.content}</div>
+                      {message.status === "answered" && !!message.actions?.length && <DestinationCards actions={message.actions} onInternalClick={followDestination} />}
                       {message.sources && message.sources.length > 0 && message.status === "answered" && <Disclosure label={`Sources · ${message.sources.length}`}><ul className="jam-sources">{message.sources.map(source => <li key={source.chunk_id}><strong>{source.label || source.title || source.category}</strong><p>{sourceExcerpt(source)}</p></li>)}</ul></Disclosure>}
                       {message.normalizationApplied && message.normalizedQuery && <Disclosure label="Question details"><p>Interpreted as: {message.normalizedQuery}</p></Disclosure>}
                       {index === messages.length - 1 && message.status === "answered" && !!message.suggestedQuestions?.length && <div className="jam-suggestions">{message.suggestedQuestions.map(question => <button key={question} disabled={status === "loading"} onClick={() => void send(question)}>{question}<ArrowUpRight size={13} aria-hidden="true" /></button>)}</div>}

@@ -28,11 +28,13 @@ export default function Hobbies() {
       </Reveal>
 
       <motion.dl
+        id="sports"
+        tabIndex={-1}
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
         transition={{ duration: 0.7, delay: 0.15, ease: [0.25, 1, 0.5, 1] }}
-        className="mt-10 grid max-w-2xl grid-cols-3 border-y border-[var(--color-edge)] py-5"
+        className="mt-10 grid max-w-2xl scroll-mt-24 grid-cols-3 border-y border-[var(--color-edge)] py-5"
       >
         <div className="pr-4">
           <dt className="eyebrow">Sports</dt>

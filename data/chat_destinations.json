@@ -35,11 +35,24 @@
     "subject": "hobbies"
   },
   {
+    "id": "sports",
+    "label": "Explore James’s sports",
+    "kind": "internal",
+    "href": "/hobbies#sports",
+    "subject": "sports"
+  },
+  {
     "id": "song-youtube",
     "label": "Listen on YouTube",
     "kind": "external",
     "href": "https://www.youtube.com/watch?v=gEpMLJxm9A8",
-    "subject": "song"
+    "subject": "song",
+    "preview": {
+      "title": "君の神様になりたい。",
+      "subtitle": "こはならむ",
+      "image": "https://i.ytimg.com/vi/gEpMLJxm9A8/hqdefault.jpg",
+      "alt": "Cover artwork for 君の神様になりたい。 by こはならむ"
+    }
   },
   {
     "id": "song-spotify",
@@ -131,5 +144,61 @@
     "kind": "external",
     "href": "https://www.realmadrid.com/en-US/the-club/history/football-legends/cristiano-ronaldo-dos-santos-aveiro",
     "subject": "football"
+  },
+  {
+    "id": "game-apex",
+    "label": "Explore Apex Legends",
+    "kind": "external",
+    "href": "https://www.ea.com/games/apex-legends",
+    "subject": "game-apex"
+  },
+  {
+    "id": "game-cs2",
+    "label": "Explore Counter-Strike 2",
+    "kind": "external",
+    "href": "https://www.counter-strike.net/",
+    "subject": "game-cs2"
+  },
+  {
+    "id": "game-valorant",
+    "label": "Explore VALORANT",
+    "kind": "external",
+    "href": "https://playvalorant.com/en-us/",
+    "subject": "game-valorant"
+  },
+  {
+    "id": "game-cyberpunk",
+    "label": "Explore Cyberpunk 2077",
+    "kind": "external",
+    "href": "https://www.cyberpunk.net/en/",
+    "subject": "game-cyberpunk"
+  },
+  {
+    "id": "game-gta5",
+    "label": "Explore GTA V",
+    "kind": "external",
+    "href": "https://www.rockstargames.com/gta-v",
+    "subject": "game-gta5"
+  },
+  {
+    "id": "game-overwatch",
+    "label": "Explore Overwatch",
+    "kind": "external",
+    "href": "https://overwatch.blizzard.com/",
+    "subject": "game-overwatch"
+  },
+  {
+    "id": "game-civilization",
+    "label": "Explore Civilization",
+    "kind": "external",
+    "href": "https://civilization.2k.com/",
+    "subject": "game-civilization"
+  },
+  {
+    "id": "game-mario-kart",
+    "label": "Explore Mario games",
+    "kind": "external",
+    "href": "https://www.nintendo.com/us/store/games/mario-games/",
+    "subject": "game-mario-kart"
   }
 ]

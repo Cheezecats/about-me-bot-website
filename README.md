@@ -59,8 +59,9 @@ See [architecture](docs/CHATBOT_ARCHITECTURE.md), [deployment](docs/DEPLOYMENT.m
 
 ## JamChat destination links
 
-JamChat can offer clickable cards for website pages, the curated photo selection,
-and documented music/football interests. Edit `data/chat_destinations.json` to
+JamChat can offer clickable cards for website pages, the sports timeline,
+documented music and games, and the curated photo selection. The favorite song
+has a static cover preview with Spotify and YouTube links. Edit `data/chat_destinations.json` to
 maintain destination labels and links; both frontend and backend use that catalog.
 Restart the API and rebuild the frontend after catalog changes. The photo-picks
 count follows the content export, so run the knowledge-base export steps above

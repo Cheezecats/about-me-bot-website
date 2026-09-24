@@ -26,6 +26,14 @@ def send(client, question, session='navigation-tests'):
     ('Show me his videos', ['videos']),
     ('Show me his essays', ['essays']),
     ('Show me his hobbys', ['hobbies']),
+    ('Show me his sports', ['sports']),
+    ('Show me his favorite games', ['game-apex','game-cs2','game-valorant']),
+    ('Show me Apex Legends', ['game-apex']),
+    ('Show me Cyberpunk 2077', ['game-cyberpunk']),
+    ('Show me GTA 5', ['game-gta5']),
+    ('Show me Overwatch', ['game-overwatch']),
+    ('Show me Civilization', ['game-civilization']),
+    ('Show me Mario Kart', ['game-mario-kart']),
     ('Where can I hear his favorite song?', ['song-youtube','song-spotify']),
     ('What about his favorite football team?', ['real-madrid','cr7-history']),
     ('Show me DECO*27', ['deco27-youtube','deco27-spotify']),
@@ -75,11 +83,34 @@ def test_catalog_only_contains_supported_destinations():
     assert len(catalog()) == len(json.loads((config.DATA_DIR/'chat_destinations.json').read_text()))
     for entry in catalog().values():
         if entry['kind'] == 'internal':
-            assert entry['href'] in ['/photography','/photography#authors-choice','/videos','/essays','/hobbies']
+            assert entry['href'] in ['/photography','/photography#authors-choice','/videos','/essays','/hobbies','/hobbies#sports']
         else:
             url = urlparse(entry['href'])
             assert url.scheme == 'https'
-            assert url.hostname in {'www.youtube.com','open.spotify.com','www.realmadrid.com'}
+            assert url.hostname in {'www.youtube.com','open.spotify.com','www.realmadrid.com','www.ea.com','www.counter-strike.net','playvalorant.com','www.cyberpunk.net','www.rockstargames.com','overwatch.blizzard.com','civilization.2k.com','www.nintendo.com'}
+
+    preview = catalog()['song-youtube']['preview']
+    assert preview['image'] == 'https://i.ytimg.com/vi/gEpMLJxm9A8/hqdefault.jpg'
+
+
+def test_curated_actions_follow_grounded_facts(client):
+    assert send(client, 'What music does James like?', 'facts-music')['actions'] == ['song-youtube','song-spotify']
+    assert send(client, 'What sports does James play?', 'facts-sports')['actions'] == ['sports']
+    assert send(client, "What are James's favorite games?", 'facts-games')['actions'] == ['game-apex','game-cs2','game-valorant']
+    assert send(client, 'What is his highest rank in Apex Legends?', 'facts-apex')['actions'] == ['game-apex']
+
+
+def test_specific_games_and_followups(client):
+    assert send(client, 'Show me his favorite games', 'game-followup')['actions'] == ['game-apex','game-cs2','game-valorant']
+    assert send(client, 'Take me there', 'game-followup')['status'] == 'clarification'
+    assert send(client, 'Show me Apex Legends', 'game-followup')['actions'] == ['game-apex']
+    assert send(client, 'Take me there', 'game-followup')['actions'] == ['game-apex']
+    assert send(client, 'Show me 千恋万花', 'game-followup')['actions'] == []
+
+
+def test_non_matching_or_unsupported_facts_do_not_receive_cards(client):
+    for question in ['What genres does James listen to?', "What is James's favorite restaurant?", 'Show me Flappy Bird']:
+        assert send(client, question, 'no-cards')['actions'] == []
 
 def test_information_requests_do_not_become_navigation_commands():
     assert navigation_reply('What genres does James listen to?') is None
