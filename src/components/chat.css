@@ -53,6 +53,18 @@
 .jam-message-text li + li { margin-top: 6px; }
 .jam-link { text-decoration: underline; text-underline-offset: 3px; }
 .jam-link:hover { color: var(--jam-muted); }
+.jam-destinations { display: grid; gap: 9px; margin-top: 14px; }
+.jam-destination-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.jam-destination-link { min-height: 38px; display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 11px; border: 1px solid var(--jam-border); border-radius: 12px; background: var(--jam-bg); color: var(--jam-ink); font-size: 12px; font-weight: 550; text-decoration: none; }
+.jam-destination-link:hover { background: var(--jam-surface); }
+.jam-song-card { display: flex; min-width: 0; overflow: hidden; border: 1px solid var(--jam-border); border-radius: 16px; background: var(--jam-surface); }
+.jam-song-card > img { width: 92px; min-height: 100%; object-fit: cover; flex-shrink: 0; }
+.jam-song-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 11px; }
+.jam-destination-eyebrow { color: var(--jam-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.jam-song-info strong { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.jam-song-info > span:not(.jam-destination-eyebrow) { color: var(--jam-muted); font-size: 11px; }
+.jam-song-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.jam-song-links .jam-destination-link { min-height: 35px; padding: 6px 8px; }
 .jam-error-icon { color: #b36a35; }
 .dark .jam-error-icon { color: #e8ac79; }
 .jam-disclosure { font-size: 12px; }
