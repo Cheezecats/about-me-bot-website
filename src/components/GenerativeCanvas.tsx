@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import p5 from "p5";
 import { useTheme } from "./ThemeProvider";
 
@@ -11,9 +11,10 @@ const PALETTES: Record<"light" | "dark", Palette> = {
 
 type Props = {
   className?: string;
-  height?: number;
+  height?: number | string;
   seed?: number;
   particleCount?: number;
+  interactionRef?: RefObject<HTMLElement | null>;
 };
 
 export default function GenerativeCanvas({
@@ -21,6 +22,7 @@ export default function GenerativeCanvas({
   height = 360,
   seed = 7,
   particleCount = 280,
+  interactionRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<p5 | null>(null);
@@ -34,6 +36,25 @@ export default function GenerativeCanvas({
       "(prefers-reduced-motion: reduce)"
     ).matches;
     const palette = PALETTES[theme];
+    const interactionNode = interactionRef?.current;
+    const cursor = { x: 0, y: 0, targetX: 0, targetY: 0, active: false, strength: 0 };
+    let resizeObserver: ResizeObserver | undefined;
+    const movePointer = (event: PointerEvent) => {
+      if (prefersReduced || event.pointerType === "touch") return;
+      const bounds = node.getBoundingClientRect();
+      cursor.targetX = event.clientX - bounds.left;
+      cursor.targetY = event.clientY - bounds.top;
+      if (!cursor.active) {
+        cursor.x = cursor.targetX;
+        cursor.y = cursor.targetY;
+      }
+      cursor.active = true;
+    };
+    const leavePointer = () => { cursor.active = false; };
+    interactionNode?.addEventListener("pointermove", movePointer, { passive: true });
+    interactionNode?.addEventListener("pointerleave", leavePointer);
+    interactionNode?.addEventListener("pointercancel", leavePointer);
+    window.addEventListener("blur", leavePointer);
 
     const sketch = (p: p5) => {
       let w = node.clientWidth;
@@ -50,6 +71,19 @@ export default function GenerativeCanvas({
         p.background(palette.bg);
         p.strokeCap(p.ROUND);
         resetParticles();
+        resizeObserver = new ResizeObserver(() => {
+          const nextWidth = node.clientWidth;
+          const nextHeight = node.clientHeight;
+          if (!nextWidth || !nextHeight || (w === nextWidth && h === nextHeight)) return;
+          w = nextWidth;
+          h = nextHeight;
+          p.resizeCanvas(w, h);
+          p.background(palette.bg);
+          resetParticles();
+          if (prefersReduced) p.redraw();
+        });
+        resizeObserver.observe(node);
+        if (prefersReduced) p.noLoop();
       };
 
       const resetParticles = () => {
@@ -61,15 +95,10 @@ export default function GenerativeCanvas({
         }
       };
 
-      p.windowResized = () => {
-        w = node.clientWidth;
-        h = node.clientHeight;
-        p.resizeCanvas(w, h);
-        p.background(palette.bg);
-        resetParticles();
-      };
-
       p.draw = () => {
+        cursor.x += (cursor.targetX - cursor.x) * 0.12;
+        cursor.y += (cursor.targetY - cursor.y) * 0.12;
+        cursor.strength += ((cursor.active ? 1 : 0) - cursor.strength) * 0.08;
         // fade existing trails toward the background
         p.noStroke();
         const bg = p.color(palette.bg);
@@ -91,6 +120,19 @@ export default function GenerativeCanvas({
           pt.x += p.cos(angle) * step;
           pt.y += p.sin(angle) * step;
 
+          // A soft outward swirl bends the existing flow near the cursor.
+          if (!prefersReduced && cursor.strength > 0.001) {
+            const dx = pt.px - cursor.x;
+            const dy = pt.py - cursor.y;
+            const distance = Math.hypot(dx, dy);
+            const radius = Math.min(180, w * 0.3);
+            if (distance > 0 && distance < radius) {
+              const force = (1 - distance / radius) ** 2 * cursor.strength * 3.5;
+              pt.x += (dx - dy * 0.65) / distance * force;
+              pt.y += (dy + dx * 0.65) / distance * force;
+            }
+          }
+
           if (pt.x < 0 || pt.x > w || pt.y < 0 || pt.y > h) {
             pt.x = p.random(w);
             pt.y = p.random(h);
@@ -105,10 +147,6 @@ export default function GenerativeCanvas({
         t += 0.0016;
       };
 
-      if (prefersReduced) {
-        // render a single static composition
-        p.noLoop();
-      }
     };
 
     const instance = new p5(sketch, node);
@@ -120,7 +158,7 @@ export default function GenerativeCanvas({
         for (const e of entries) {
           if (prefersReduced) return;
           if (e.isIntersecting) instance.loop();
-          else instance.noLoop();
+          else { leavePointer(); instance.noLoop(); }
         }
       },
       { threshold: 0.05 }
@@ -129,12 +167,17 @@ export default function GenerativeCanvas({
 
     return () => {
       io.disconnect();
+      resizeObserver?.disconnect();
+      interactionNode?.removeEventListener("pointermove", movePointer);
+      interactionNode?.removeEventListener("pointerleave", leavePointer);
+      interactionNode?.removeEventListener("pointercancel", leavePointer);
+      window.removeEventListener("blur", leavePointer);
       instance.remove();
       instanceRef.current = null;
       // p5 leaves a canvas node; clear it defensively
       node.textContent = "";
     };
-  }, [theme, seed, particleCount, height]);
+  }, [theme, seed, particleCount, height, interactionRef]);
 
   return (
     <div
