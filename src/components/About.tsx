@@ -1,29 +1,31 @@
 import Reveal from "./Reveal";
 import GenerativeCanvas from "./GenerativeCanvas";
 import { bio } from "../data/content";
+import { useRef } from "react";
 
 export default function About() {
+  const sectionRef = useRef<HTMLElement>(null);
   return (
-    <section className="relative flex min-h-[520px] items-center overflow-hidden">
+    <section ref={sectionRef} aria-labelledby="about-heading" className="relative flex min-h-[520px] items-center overflow-hidden">
       {/* Ambient generative band */}
-      <div className="absolute inset-x-0 top-0 h-full opacity-90">
-        <GenerativeCanvas height={520} seed={11} particleCount={320} />
+      <div className="pointer-events-none absolute inset-0 opacity-90">
+        <GenerativeCanvas height="100%" seed={11} particleCount={320} interactionRef={sectionRef} />
       </div>
       <div
-        className="absolute inset-0"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
             "linear-gradient(180deg, var(--color-bg) 0%, transparent 22%, transparent 70%, var(--color-bg) 100%)",
         }}
       />
 
-      <div className="relative mx-auto flex w-full max-w-[920px] -translate-y-4 flex-col items-center justify-center px-6 py-24 text-center sm:-translate-y-5 sm:py-28">
+      <div className="relative mx-auto flex w-full max-w-[920px] flex-col items-center justify-center px-6 py-24 text-center sm:py-28">
         <Reveal>
           <span className="eyebrow">About</span>
         </Reveal>
 
-        <Reveal delay={0.05}>
-          <h2 className="mx-auto mt-6 max-w-3xl text-[clamp(1.6rem,4.4vw,3rem)] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--color-fg)]">
+        <Reveal delay={0.05} className="w-full">
+          <h2 id="about-heading" className="mx-auto mt-6 max-w-3xl text-balance text-[clamp(1.6rem,4.4vw,3rem)] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--color-fg)]">
             I capture the world through a lens, a camera, and a curious mind.
           </h2>
         </Reveal>
