@@ -1,6 +1,6 @@
 # JamChat review and improvements
 
-Review completed 7 September 2026. Changes remain local; no commit, push, publication, model installation or production-service restart was performed. Workbuddy and Claude audit files were left untouched.
+Review completed 7 September 2026. Changes remain local; no commit, push, publication, model installation or production-service restart was performed.
 
 ## Findings and changes
 

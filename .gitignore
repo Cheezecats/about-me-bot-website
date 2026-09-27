@@ -27,3 +27,12 @@ models/
 cloudflared*
 .ollama/
 logs/
+# Agent audit and extraction artifacts; approved facts live in kb_extra/ and data/
+.claude/
+.workbuddy/
+workbuddy_extraction_output/
+hermes_output/
+CLAUDE_GLM52_*.md
+WORKBUDDY_*.md
+/docs/workbuddy-extraction-prompt.md
+/docs/hermes-extraction-prompt*.md
